@@ -1,4 +1,14 @@
 {
+  "name": "openai-yt-chatbot",
+  "version": "1.0.0",
+  "description": "YouTube live chat bot with OpenAI integration",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "author": "Huckleberry",
+  "license": "MIT",
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

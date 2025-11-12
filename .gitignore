@@ -9,3 +9,6 @@ node_modules/
 
 # Auth tokens
 token.json
+
+# state files
+dev_state.json
