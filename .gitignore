@@ -1,0 +1,11 @@
+# Node
+node_modules/
+*.log
+
+# Environment & secrets
+.env
+.env.*
+!*.example
+
+# Auth tokens
+token.json
