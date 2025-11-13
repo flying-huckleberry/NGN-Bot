@@ -22,13 +22,13 @@ const {
   TARGET_TITLE_MATCH = '',
   TARGET_LIVESTREAM_URL,
   OPENAI_API_KEY,
+  OPENAI_MODEL = 'gpt-4o-mini',
   CHAT_MAX_CHARS = 190,
   OWNER_CHANNEL_ID,
   COMMAND_PREFIX = '!',
   POLLING_FALLBACK_MS = '10000',
+  APILEAGUE_API_KEY = '',
 } = process.env;
-
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 // validate critical oauth vars early
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
@@ -58,6 +58,10 @@ module.exports = {
   TOKEN_PATH,
   DEV_STATE_PATH,
 
+  // time
+  BOT_START_ISO,
+  BOT_START_MS,
+
   // oauth/youtube
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -79,7 +83,5 @@ module.exports = {
   OPENAI_MODEL,
   MAX_CHARS,
 
-  // time
-  BOT_START_ISO,
-  BOT_START_MS,
+  APILEAGUE_API_KEY
 };
