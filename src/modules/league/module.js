@@ -55,17 +55,32 @@ module.exports = {
 
     riddle: {
       name: 'riddle',
-      description: 'Random riddle (difficulty fixed in code).',
+      description: 'Random riddle. Difficulty is fixed in code, answer is revlealed after a delay.).',
       usage: 'league riddle',
       async run(ctx) {
         try {
-          const text = await ctx.services.league.randomRiddle();
-          const out = text || 'No riddle.';
-          await ctx.reply(
-            out.length > ctx.env.CHAT_MAX_CHARS
-              ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
-              : out
-          );
+          const { riddle, answer } = await ctx.services.league.randomRiddle();
+          
+          const max = ctx.env.CHAT_MAX_CHARS || 190;
+          const clamp = (text) =>
+            String(text || '').length > max
+              ? String(text || '').slice(0, max-1) + '...'
+              : String(text || '');
+
+          const riddleMsg = clamp(riddle || 'No riddle.');
+          await ctx.reply(riddleMsg);
+          console.log('[league.riddle] sent riddle:', riddleMsg);
+
+          // Delay before revealing the answer
+          const timeoutMs = Number(ctx.env.RIDDLE_TIMEOUT || 120000); //2 mins
+
+          setTimeout(() => {
+            const reveal = clamp(`Answer: ${answer} || ${riddleMsg}`);
+            console.log('[league.riddle] sending answer:', reveal);
+            // no await inside setTimeout; fire-and-forget
+            ctx.reply(reveal);
+          }, timeoutMs);
+
         } catch (e) {
           ctx.logger.warn('[league.riddle]', e.message || e);
           await ctx.reply('No riddle right now.');

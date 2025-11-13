@@ -28,6 +28,7 @@ const {
   COMMAND_PREFIX = '!',
   POLLING_FALLBACK_MS = '10000',
   APILEAGUE_API_KEY = '',
+  RIDDLE_TIMEOUT = '120000'
 } = process.env;
 
 // validate critical oauth vars early
@@ -83,5 +84,7 @@ module.exports = {
   OPENAI_MODEL,
   MAX_CHARS,
 
-  APILEAGUE_API_KEY
+  // league api
+  APILEAGUE_API_KEY,
+  RIDDLE_TIMEOUT,
 };

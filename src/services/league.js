@@ -1,5 +1,5 @@
 // src/services/league.js
-const { APILEAGUE_API_KEY, CHAT_MAX_CHARS } = require('../config/env');
+const { APILEAGUE_API_KEY, CHAT_MAX_CHARS, RIDDLE_TIMEOUT } = require('../config/env');
 const ApileagueJs = require('apileague-js');
 
 const defaultClient = ApileagueJs.ApiClient.instance;
@@ -92,9 +92,9 @@ async function randomTrivia({ maxLength } = {}) {
 async function randomRiddle() {
   const apiOpts = { difficulty: 'medium' }; // easy, medium, hard
   const { data } = await randomRiddleAPIP(apiOpts);
-  data.riddle = sanitizeOneLine(data.riddle);
-  data.answer = sanitizeOneLine(data.answer);
-  return data.riddle;
+  const riddle = sanitizeOneLine(data.riddle);
+  const answer = sanitizeOneLine(data.answer);
+  return { riddle, answer };
 }
 
 /**
