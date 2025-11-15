@@ -485,6 +485,17 @@ module.exports = {
       },
     },
 
+    racehelp: {
+      name: 'racehelp',
+      description: 'Show racing help.',
+      usage: 'racehelp',
+      aliases: ['racerules'],
+      async run(ctx) {
+        await ctx.reply(
+          'Street racing: Use !race to start or join a race; !venue shows the upcoming track; !car shows your build; !upgrade <part> lists or buys mods; !cash shows your money.'
+        );
+      },
+    },
 
   },
 };
