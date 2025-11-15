@@ -170,10 +170,13 @@ const g = require('./state/g');
 
       let liveChatId = null;
 
+      // Priority connect livestream URL
       if (TARGET_LIVESTREAM_URL) {
         liveChatId = await getLiveChatIdFromUrl(TARGET_LIVESTREAM_URL);
+      // secondary connect via Target Video ID
       } else if (process.env.TARGET_VIDEO_ID) {
         liveChatId = await getLiveChatIdForVideo(process.env.TARGET_VIDEO_ID);
+      // Last, connect by Channel ID
       } else if (TARGET_CHANNEL_ID) {
         liveChatId = await getLiveChatIdForChannel(
           TARGET_CHANNEL_ID,

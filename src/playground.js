@@ -15,6 +15,48 @@ const logger = console;
 // Use a different port than the main bot to avoid conflicts
 const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
 
+// Global in-memory log of all replies ever sent in this process
+const PLAYGROUND_LOG = [];
+
+// Helper to push into the global log with a soft cap
+function pushLog(text) {
+  const line = String(text ?? '');
+  PLAYGROUND_LOG.push(line);
+  // soft cap to avoid unbounded growth
+  if (PLAYGROUND_LOG.length > 200) {
+    PLAYGROUND_LOG.shift();
+  }
+}
+
+// Fake YouTube-style players for testing
+const PLAYGROUND_PLAYERS = [
+  {
+    id: 'UC_PLAYGROUND_OWNER',
+    displayName: 'PlaygroundOwner',
+    isChatOwner: true,
+  },
+  {
+    id: 'UC_STREETKING',
+    displayName: 'StreetKing',
+    isChatOwner: false,
+  },
+  {
+    id: 'UC_DRIFTQUEEN',
+    displayName: 'DriftQueen',
+    isChatOwner: false,
+  },
+  {
+    id: 'UC_RAINRUNNER',
+    displayName: 'RainRunner',
+    isChatOwner: false,
+  },
+  {
+    id: 'UC_ROADBLADE',
+    displayName: 'RoadBlade',
+    isChatOwner: false,
+  },
+];
+
 (async () => {
   const app = express();
   app.use(express.urlencoded({ extended: true }));
@@ -25,8 +67,10 @@ const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
   const registry = loadModules(modulesDir);
 
   // 2) Build a context factory for the playground
-  function buildContextFactoryForPlayground(replies) {
+  function buildContextFactoryForPlayground() {
     return async function buildContext({ msg, liveChatId, args }) {
+      const author = msg && msg.authorDetails ? msg.authorDetails : null;
+
       return {
         env,
         services: {
@@ -39,26 +83,21 @@ const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
         msg,
         liveChatId,
         args,
+        author,
+        user: author, // optional alias if modules ever expect ctx.user
         reply: async (text) => {
-          replies.push(String(text ?? ''));
+          pushLog(text);
         },
       };
     };
   }
 
-  // 3) Create router using a playground-specific context factory
-  const dispatch = createRouter({
-    registry,
-    buildContext: (...args) => {
-      throw new Error(
-        'buildContext should be provided per-request via buildContextFactoryForPlayground'
-      );
-    },
-  });
+  // 3) Wrap dispatch so we can inject a fresh buildContext per request and a chosen player
+  async function runCommandText(rawText, player) {
+    const before = PLAYGROUND_LOG.length;
+    const repliesFromThisCommand = [];
 
-  // we’ll wrap dispatch so we can inject a fresh buildContext per request
-  async function runCommandText(rawText) {
-    const replies = [];
+    const effectivePlayer = player || PLAYGROUND_PLAYERS[0];
 
     // Fake YouTube-style message object (router expects msg.snippet.textMessageDetails.messageText)
     const fakeMsg = {
@@ -70,27 +109,73 @@ const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
         publishedAt: new Date().toISOString(),
       },
       authorDetails: {
-        displayName: 'PlaygroundUser',
-        channelId: 'PLAYGROUND',
-        isChatOwner: true, // so ownerOnly commands will work if you test them
+        displayName: effectivePlayer.displayName,
+        channelId: effectivePlayer.id,
+        isChatOwner: !!effectivePlayer.isChatOwner,
+        // you can add isChatModerator, isChatSponsor, etc. if needed
       },
     };
 
-    const playgroundBuildContext = buildContextFactoryForPlayground(replies);
+    const playgroundBuildContext = buildContextFactoryForPlayground();
 
     const requestScopedDispatch = createRouter({
       registry,
       buildContext: playgroundBuildContext,
     });
 
+    // Run the command: immediate replies go into PLAYGROUND_LOG via ctx.reply
     await requestScopedDispatch({ msg: fakeMsg, liveChatId: 'PLAYGROUND' });
 
-    return replies;
+    // Anything appended to the log during this command is considered this command's replies
+    const after = PLAYGROUND_LOG.length;
+    if (after > before) {
+      for (let i = before; i < after; i++) {
+        repliesFromThisCommand.push(PLAYGROUND_LOG[i]);
+      }
+    }
+
+    return repliesFromThisCommand;
   }
 
-  // 4) Simple HTML UI (NOW USING <input> + Enter-to-submit)
-  const htmlPage = (input = '', outputs = []) => {
+  // 4) Simple HTML UI with player radio selection + global log display
+  const htmlPage = (
+    input = '',
+    outputs = [],
+    selectedPlayerId = PLAYGROUND_PLAYERS[0].id
+  ) => {
     const safeInput = input.replace(/</g, '&lt;');
+
+    const playersHtml = PLAYGROUND_PLAYERS
+      .map((p) => {
+        const checked = p.id === selectedPlayerId ? 'checked' : '';
+        return `<label>
+          <input type="radio" name="playerId" value="${p.id}" ${checked} />
+          ${p.displayName} ${p.isChatOwner ? '(owner)' : ''}
+        </label>`;
+      })
+      .join('<br />');
+
+    const logHtml =
+      PLAYGROUND_LOG.length > 0
+        ? `<h2>Global Log</h2>
+          <form method="POST" action="/clear-log" style="margin-bottom:8px;">
+            <button type="submit">Clear log</button>
+          </form>
+          ${
+            PLAYGROUND_LOG.slice().reverse() // newest first
+              .map((o) => `<div class="out">${o.replace(/</g, '&lt;')}</div>`)
+              .join('')
+          }`
+        : '';
+
+
+    const outputsHtml =
+      outputs.length > 0
+        ? `<h2>Replies from last command</h2>${outputs
+            .map((o) => `<div class="out">${o.replace(/</g, '&lt;')}</div>`)
+            .join('')}`
+        : '';
+
     return `<!doctype html>
 <html>
   <head>
@@ -100,13 +185,16 @@ const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
       body { font-family: system-ui, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 16px; }
       input[type="text"] { width: 100%; font-family: monospace; padding: 8px; font-size: 14px; box-sizing: border-box; }
       button { padding: 8px 16px; margin-top: 8px; }
-      .out { margin-top: 16px; padding: 8px; background: #111; color: #0f0; white-space: pre-wrap; border-radius: 4px; }
+      .out { margin-top: 8px; padding: 8px; background: #111; color: #0f0; white-space: pre-wrap; border-radius: 4px; }
       .hint { color: #666; font-size: 0.9em; margin-top: 4px; }
+      fieldset { margin-top: 16px; padding: 8px 12px; }
+      legend { font-weight: bold; }
+      h2 { margin-top: 24px; }
     </style>
   </head>
   <body>
     <h1>Command Playground</h1>
-    <p>Type a command as if you were in YouTube chat (e.g. <code>!league joke</code>).</p>
+    <p>Type a command as if you were in YouTube chat (e.g. <code>!league joke</code> or <code>!race</code>).</p>
     <form method="POST" action="/">
       <input
         type="text"
@@ -117,44 +205,55 @@ const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
         onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.form.submit(); }"
       />
       <br />
+      <fieldset>
+        <legend>Send as player</legend>
+        ${playersHtml}
+      </fieldset>
       <button type="submit">Run</button>
       <div class="hint">Remember: commands still use your prefix (<code>${env.COMMAND_PREFIX}</code>).</div>
     </form>
 
-    ${
-      outputs.length
-        ? `<h2>Replies</h2>${outputs
-            .map((o) => `<div class="out">${o.replace(/</g, '&lt;')}</div>`)
-            .join('')}`
-        : ''
-    }
+    ${outputsHtml}
+    ${logHtml}
   </body>
 </html>`;
   };
 
-  // GET: show empty form
+  // GET: show form + full log
   app.get('/', (req, res) => {
-    res.send(htmlPage('', []));
+    res.send(htmlPage('', [], PLAYGROUND_PLAYERS[0].id));
   });
 
   // POST: run the text through the command router
   app.post('/', async (req, res) => {
     const input = (req.body.input || '').trim();
+    const selectedPlayerId = req.body.playerId || PLAYGROUND_PLAYERS[0].id;
+    const player =
+      PLAYGROUND_PLAYERS.find((p) => p.id === selectedPlayerId) ||
+      PLAYGROUND_PLAYERS[0];
+
     if (!input) {
-      return res.send(htmlPage('', ['(no input)']));
+      return res.send(htmlPage('', ['(no input)'], selectedPlayerId));
     }
 
     try {
-      const replies = await runCommandText(input);
-      const outputs =
-        replies.length > 0 ? replies : ['(no replies — maybe not a recognized command?)'];
-      res.send(htmlPage('', outputs));
-
+      const outputs = await runCommandText(input, player);
+      const finalOutputs =
+        outputs.length > 0 ? outputs : ['(no replies — maybe not a recognized command?)'];
+      res.send(htmlPage('', finalOutputs, selectedPlayerId));
     } catch (err) {
       logger.error('Playground error:', err);
-      res.send(htmlPage(input, ['Error while running command. Check server logs.']));
+      res.send(
+        htmlPage(input, ['Error while running command. Check server logs.'], selectedPlayerId)
+      );
     }
   });
+
+  app.post('/clear-log', (req, res) => {
+    PLAYGROUND_LOG.length = 0;
+    res.send(htmlPage('', ['(log cleared)'], PLAYGROUND_PLAYERS[0].id));
+  });
+
 
   app.listen(PLAYGROUND_PORT, () => {
     logger.info(`Playground running at http://localhost:${PLAYGROUND_PORT}`);

@@ -1,0 +1,80 @@
+{
+  "players": {
+    "UC_STREETKING": {
+      "id": "UC_STREETKING",
+      "name": "StreetKing",
+      "cash": 1025,
+      "parts": {
+        "tires": "stock",
+        "suspension": "stock",
+        "brakes": "brake by wire",
+        "intake": "stock",
+        "exhaust": "performance x",
+        "ecu": "stock",
+        "carbonfiber": "chrono"
+      }
+    },
+    "UC_RAINRUNNER": {
+      "id": "UC_RAINRUNNER",
+      "name": "RainRunner",
+      "cash": 1275,
+      "parts": {
+        "tires": "aerogrip",
+        "suspension": "stock",
+        "brakes": "brake by wire",
+        "intake": "stock",
+        "exhaust": "stock",
+        "ecu": "stock",
+        "carbonfiber": "stock"
+      }
+    },
+    "UC_DRIFTQUEEN": {
+      "id": "UC_DRIFTQUEEN",
+      "name": "DriftQueen",
+      "cash": 900,
+      "parts": {
+        "tires": "stock",
+        "suspension": "stock",
+        "brakes": "stock",
+        "intake": "turbo",
+        "exhaust": "stock",
+        "ecu": "stock",
+        "carbonfiber": "stock"
+      }
+    },
+    "UC_ROADBLADE": {
+      "id": "UC_ROADBLADE",
+      "name": "RoadBlade",
+      "cash": 850,
+      "parts": {
+        "tires": "stock",
+        "suspension": "balanced",
+        "brakes": "stock",
+        "intake": "stock",
+        "exhaust": "stock",
+        "ecu": "stock",
+        "carbonfiber": "stock"
+      }
+    },
+    "UC_PLAYGROUND_OWNER": {
+      "id": "UC_PLAYGROUND_OWNER",
+      "name": "PlaygroundOwner",
+      "cash": 200,
+      "parts": {
+        "tires": "stock",
+        "suspension": "stock",
+        "brakes": "stock",
+        "intake": "stock",
+        "exhaust": "stock",
+        "ecu": "stock",
+        "carbonfiber": "stock"
+      }
+    }
+  },
+  "race": null,
+  "cooldownUntil": 1763199812201,
+  "nextRace": {
+    "venue": "Harbor",
+    "weather": "Sunny"
+  }
+}

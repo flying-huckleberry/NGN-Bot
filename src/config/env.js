@@ -1,7 +1,15 @@
 // src/config/env.js
-require('dotenv').config();
+const path = require("path");
+const dotenvPath = path.join(__dirname, "..", "..", ".env");
 
-const path = require('path');
+const dotenvResult = require("dotenv").config({ path: dotenvPath });
+
+if (dotenvResult.error) {
+  console.error("Failed to load .env:", dotenvResult.error);
+} else {
+  console.log("Loaded .env from", dotenvPath);
+}
+
 
 const MODE = (process.env.MODE || 'prod').toLowerCase();
 const PORT = Number(process.env.PORT || 3000);
@@ -28,7 +36,9 @@ const {
   COMMAND_PREFIX = '!',
   POLLING_FALLBACK_MS = '10000',
   APILEAGUE_API_KEY = '',
-  RIDDLE_TIMEOUT = '120000'
+  RIDDLE_TIMEOUT = '120000',
+  RACE_COOLDOWN_MS = '1000000',
+  RACE_JOIN_WINDOW_MS = '120000',
 } = process.env;
 
 // validate critical oauth vars early
@@ -87,4 +97,8 @@ module.exports = {
   // league api
   APILEAGUE_API_KEY,
   RIDDLE_TIMEOUT,
+
+  // Racing Game
+  RACE_COOLDOWN_MS,
+  RACE_JOIN_WINDOW_MS
 };
