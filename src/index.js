@@ -18,6 +18,7 @@ if (!fs.existsSync(rootPkg)) {
 const express = require('express');
 const open = (...args) => import('open').then((m) => m.default(...args));
 
+
 const {
   youtube,
   initYoutubeAuthIfTokenExists,
@@ -26,10 +27,14 @@ const {
   getLiveChatIdForChannel,
   primeChat,
 } = require('./services/youtube');
+const { resolveTargetLiveChatId } = require('./services/liveChatTarget');
+
+
 const league = require('./services/league');
 
 const { mountAuthRoutes } = require('./server/auth');
 const { registerDevRoutes } = require('./routes/dev');
+const { registerPlaygroundRoutes } = require('./routes/playground');
 
 const { createRouter } = require('./core/router');
 const { loadModules } = require('./core/loader');
@@ -60,11 +65,13 @@ const g = require('./state/g');
   // The dev panel expects a pollOnce(liveChatId) function; we adapt it to the router.
   registerDevRoutes(app, {
     pollOnce: (liveChatId) => pollOnceWithDispatch(liveChatId, dispatch),
-    // The older dev UI signature passes a "commands" map; we don’t need it anymore.
     commands: {},
   });
 
-  // 4) Start HTTP server and proceed based on token presence
+  // 4) Playground routes
+  registerPlaygroundRoutes(app);
+
+  // 5) Start HTTP server and proceed based on token presence
   const server = app.listen(PORT, async () => {
     logger.info(`HTTP server on http://localhost:${PORT}`);
 
@@ -169,25 +176,7 @@ const g = require('./state/g');
         return;
       }
 
-      let liveChatId = null;
-
-      // Priority connect livestream URL
-      if (TARGET_LIVESTREAM_URL) {
-        liveChatId = await getLiveChatIdFromUrl(TARGET_LIVESTREAM_URL);
-      // secondary connect via Target Video ID
-      } else if (process.env.TARGET_VIDEO_ID) {
-        liveChatId = await getLiveChatIdForVideo(process.env.TARGET_VIDEO_ID);
-      // Last, connect by Channel ID
-      } else if (TARGET_CHANNEL_ID) {
-        liveChatId = await getLiveChatIdForChannel(
-          TARGET_CHANNEL_ID,
-          (TARGET_TITLE_MATCH || '').trim()
-        );
-      } else {
-        throw new Error(
-          'Set one of TARGET_LIVESTREAM_URL, TARGET_VIDEO_ID, or TARGET_CHANNEL_ID in .env'
-        );
-      }
+      const liveChatId = await resolveTargetLiveChatId();
 
       const token = await primeChat(liveChatId);
       g.liveChatId = liveChatId;
