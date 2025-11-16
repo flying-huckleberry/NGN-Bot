@@ -1,7 +1,20 @@
 // src/modules/core/module.js
 const { ownerOnly } = require('../../utils/permissions');
 const logCommand = require('../../utils/logCommand');
+const partsConfig = require('../../services/racing/parts');
 
+function formatRacingPartTypes() {
+  const keys = Object.keys(partsConfig || {});
+  const pretty = keys.map((key) => {
+    switch (key.toLowerCase()) {
+      case 'carbonfiber':
+        return 'CarbonFiber';
+      default:
+        return key.charAt(0).toUpperCase() + key.slice(1);
+    }
+  });
+  return pretty.join(', ');
+}
 
 
 module.exports = {
@@ -15,27 +28,103 @@ module.exports = {
       usage: 'help [module] [command]',
       async run(ctx) {
         const { registry } = ctx.services;
-        const [m, c] = ctx.args.map((s) => s.toLowerCase());
+        const args = ctx.args || [];
+        const [rawM, rawC] = args;
+        const m = rawM && rawM.toLowerCase();
+        const c = rawC && rawC.toLowerCase();
 
         // generic help, no specific module
-        if (!m) return ctx.reply(`Modules: ${Object.keys(registry.modules).join(' | ')}`);
+        if (!m) {
+          return ctx.reply(`Modules: ${Object.keys(registry.modules).join(' | ')}`);
+        }
 
         const mod = registry.modules[m];
-        // invalid module supplied
-        if (!mod) return ctx.reply(`No module "${m}"`);
+
+        // If there's no such module and no second arg, treat m as a COMMAND name
+        if (!mod && !c) {
+          const cmdToken = m;
+          const matches = [];
+
+          for (const [modName, module] of Object.entries(registry.modules)) {
+            const commands = module.commands || {};
+            for (const [cmdName, def] of Object.entries(commands)) {
+              const cmdLower = cmdName.toLowerCase();
+              const aliases = (def.aliases || []).map((a) => a.toLowerCase());
+
+              if (cmdLower === cmdToken || aliases.includes(cmdToken)) {
+                matches.push({ modName, cmdName, def });
+              }
+            }
+          }
+
+          if (matches.length === 0) {
+            return ctx.reply(`No module or command "${cmdToken}"`);
+          }
+
+          if (matches.length === 1) {
+            const { modName, cmdName, def } = matches[0];
+            const usage = def.usage
+              ? ` — ${ctx.env.COMMAND_PREFIX}${def.usage}`
+              : '';
+
+            const isRacingUpgrade =
+              modName === 'racing' && cmdName === 'upgrade';
+
+            const extra = isRacingUpgrade
+              ? ` Part types are: ${formatRacingPartTypes()}.`
+              : '';
+
+            return ctx.reply(
+              `${modName}.${cmdName}: ${def.description || 'No description'}${usage}${extra}`
+            );
+          }
+
+          const list = matches
+            .map(({ modName, cmdName }) => `${modName}.${cmdName}`)
+            .join(' | ');
+
+          return ctx.reply(
+            `Command "${cmdToken}" exists in: ${list}. Use !help <module> ${cmdToken} for details.`
+          );
+        }
+
+        // invalid module supplied (and a command was given explicitly)
+        if (!mod) {
+          return ctx.reply(`No module "${m}"`);
+        }
 
         // no command supplied, show them the commands for the module
-        if (!c) return ctx.reply(`Commands for "${m}": ${Object.keys(mod.commands).join(' | ')}`);
+        if (!c) {
+          const cmds = Object.entries(mod.commands).map(([name, def]) => {
+            const middle = def.middleware || [];
+            const isAdmin = middle.some((fn) => fn && fn.name && fn.name.includes('ownerOnly'));
+            return isAdmin ? `(Admin Only) ${name}` : name;
+          });
+
+          return ctx.reply(`Commands for "${m}": ${cmds.join(' | ')}`);
+        }
+
 
         const def = mod.commands[c];
         // invalid command supplied for module
         if (!def) return ctx.reply(`No command "${m}.${c}"`);
 
-        const usage = def.usage ? ` — ${ctx.env.COMMAND_PREFIX}${def.usage}` : '';
+        const usage = def.usage
+          ? ` — ${ctx.env.COMMAND_PREFIX}${def.usage}`
+          : '';
+
+        const isRacingUpgrade = m === 'racing' && c === 'upgrade';
+        const extra = isRacingUpgrade
+          ? ` Part types are: ${formatRacingPartTypes()}.`
+          : '';
+
         // return description for [module] [command]
-        return ctx.reply(`${m}.${c}: ${def.description || 'No description'}${usage}`);
+        return ctx.reply(
+          `${m}.${c}: ${def.description || 'No description'}${usage}${extra}`
+        );
       },
     },
+
 
     ping: {
       name: 'ping',

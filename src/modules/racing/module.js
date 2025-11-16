@@ -21,7 +21,6 @@ const { RACE_JOIN_WINDOW_MS, RACE_COOLDOWN_MS } = require('../../config/env');
 
 const JOIN_WINDOW_MS = Number(RACE_JOIN_WINDOW_MS || 60000);       // 60s
 const COOLDOWN_MS = Number(RACE_COOLDOWN_MS || 3600000);          // 1h
-const UPGRADE_COST = 100;
 const LAST_PLACE_PAYOUT = 50;
 const PLACE_STEP = 25;
 
@@ -59,34 +58,45 @@ function getPlayerName(ctx) {
   );
 }
 
-function formatRemaining(ms) {
+function formatMsAsMinutesSeconds(ms) {
   if (ms < 0) ms = 0;
+
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
-  const mm = String(minutes % 60).padStart(2, '0');
-  if (hh === '00') {
-    // For short cooldowns, HH:MM might look weird; stick to 00:MM
-    return `${hh}:${mm}`;
+  let seconds = totalSeconds % 60;
+
+  // If there is time left but seconds came out 0, show at least 1s
+  if (totalSeconds > 0 && seconds === 0) {
+    seconds = 1;
   }
-  return `${hh}:${mm}`;
+
+  const minPart = `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const secPart = `${seconds} second${seconds === 1 ? '' : 's'}`;
+
+  return `${minPart} ${secPart}`;
 }
+
 
 function formatLobbyCountdown(lobbyEndsAt, now) {
   let msLeft = lobbyEndsAt - now;
   if (msLeft < 0) msLeft = 0;
 
   const totalSeconds = Math.floor(msLeft / 1000);
-  if (totalSeconds >= 60) {
-    const minutes = Math.floor(totalSeconds / 60);
-    return `Race begins in ${minutes} minute${minutes === 1 ? '' : 's'}!`;
+  const minutes = Math.floor(totalSeconds / 60);
+  let seconds = totalSeconds % 60;
+
+  // If there is time left but we somehow round to 0s, show at least 1s
+  if (totalSeconds > 0 && seconds === 0) {
+    seconds = 1;
   }
 
-  // Clamp to at least 1 second so you don't get "0 seconds"
-  const seconds = Math.max(1, totalSeconds);
-  return `Race begins in ${seconds} second${seconds === 1 ? '' : 's'}!`;
+  const minPart = `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const secPart = `${seconds} second${seconds === 1 ? '' : 's'}`;
+
+  return `Race begins in ${minPart} ${secPart}!`;
 }
+
+
 
 
 function normalizeToken(str) {
@@ -94,6 +104,20 @@ function normalizeToken(str) {
     .toLowerCase()
     .replace(/\s+/g, '');
 }
+
+function formatPartTypesList() {
+  const keys = Object.keys(partsConfig || {});
+  const pretty = keys.map((key) => {
+    switch (key.toLowerCase()) {
+      case 'carbonfiber':
+        return 'CarbonFiber'; // to match your existing wording
+      default:
+        return capitalize(key);
+    }
+  });
+  return pretty.join(', ');
+}
+
 
 // map user-friendly part names to config keys
 const PART_ALIASES = {
@@ -287,12 +311,16 @@ module.exports = {
         const player = ensurePlayer(userId, userName);
 
         // Check cooldown
+        // Check cooldown
+        // Check cooldown
         const cooldownUntil = getCooldownUntil();
         if (cooldownUntil > now) {
           const remaining = cooldownUntil - now;
-          const hhmm = formatRemaining(remaining);
-          return ctx.reply(`The next race will be available in ${hhmm}`);
+          const pretty = formatMsAsMinutesSeconds(remaining);
+          return ctx.reply(`The next race will be available in ${pretty}`);
         }
+
+
 
         let race = getRace();
 
@@ -396,7 +424,7 @@ module.exports = {
       name: 'upgrade',
       description: 'View or purchase car upgrades.',
       usage: 'upgrade <part> <name>',
-      aliases: ['modify'],
+      aliases: ['modify', 'upgrades'],
       async run(ctx) {
         const args = ctx.args || [];
         const userId = getPlayerId(ctx);
@@ -404,10 +432,12 @@ module.exports = {
         const player = ensurePlayer(userId, userName);
 
         if (args.length === 0) {
+          const partTypes = formatPartTypesList();
           return ctx.reply(
-            'To see what upgrades are available for a part, type !upgrade [Part Name]. Part types are: Tires, Suspension, Brakes, Intake, Exhaust, ECU, CarbonFiber'
+            `To see what upgrades are available for a part, type !upgrade <Part Name>. Part types are: ${partTypes}`
           );
         }
+
 
         // At least one arg: part
         const partKey = resolvePartKey(args[0]);
@@ -421,12 +451,17 @@ module.exports = {
         if (args.length === 1) {
           const slot = partsConfig[partKey];
           const options = Object.keys(slot || {}).filter((k) => k !== 'stock');
+
           if (!options.length) {
             return ctx.reply(`No upgrades available for ${capitalize(partKey)}.`);
           }
-          const list = options.join(', ');
+
+          const list = options
+            .map((name) => `${name} (${slot[name].price})`)
+            .join(', ');
+
           return ctx.reply(
-            `Available ${partKey} upgrades: ${list}. Each costs ${UPGRADE_COST} cash.`
+            `Available ${partKey} upgrades: ${list}.`
           );
         }
 
@@ -439,32 +474,19 @@ module.exports = {
           );
         }
 
-        if ((player.cash || 0) < UPGRADE_COST) {
+        const slot = partsConfig[partKey];
+        const price = slot[choiceKey].price || 100;
+
+        if ((player.cash || 0) < price) {
           return ctx.reply(
-            `You need ${UPGRADE_COST} cash for ${choiceKey} ${partKey}. You only have ${player.cash || 0}.`
+            `You need ${price} cash for ${choiceKey} ${partKey}. You only have ${player.cash || 0}.`
           );
         }
 
-        setPlayerPart(player.id, partKey, choiceKey, UPGRADE_COST);
-        await ctx.reply(
-          `${player.name} upgraded their ${partKey} to ${choiceKey} for ${UPGRADE_COST} cash.`
-        );
-      },
-    },
-    racereset: {
-      name: 'racereset',
-      description: 'OWNER-ONLY: Reset all racing data.',
-      usage: 'racereset',
-      aliases: ['resetrace'],
-      middleware: [ownerOnly()], // ← only the owner can run this command
-      async run(ctx) {
-        const { resetAll, rollNextRace } = require('../../services/racing/state');
-
-        resetAll();
-        const next = rollNextRace();
+        setPlayerPart(player.id, partKey, choiceKey, price);
 
         await ctx.reply(
-          `!!! RACING DATA HAS BEEN RESET !!! Next street race, Venue: ${next.venue}; Weather: ${next.weather}`
+          `@${player.name} upgraded their ${partKey} to ${choiceKey} for ${price} cash.`
         );
       },
     },
@@ -491,6 +513,24 @@ module.exports = {
       async run(ctx) {
         await ctx.reply(
           'Street racing: Use !race to start or join a race; !venue shows the upcoming track; !car shows your build; !upgrade <part> lists or buys mods; !cash shows your money.'
+        );
+      },
+    },
+
+    racereset: {
+      name: 'racereset',
+      description: 'OWNER-ONLY: Reset all racing data.',
+      usage: 'racereset',
+      aliases: ['resetrace'],
+      middleware: [ownerOnly()], // ← only the owner can run this command
+      async run(ctx) {
+        const { resetAll, rollNextRace } = require('../../services/racing/state');
+
+        resetAll();
+        const next = rollNextRace();
+
+        await ctx.reply(
+          `!!! RACING DATA HAS BEEN RESET !!! Next street race, Venue: ${next.venue}; Weather: ${next.weather}`
         );
       },
     },
