@@ -317,7 +317,7 @@ module.exports = {
           }, JOIN_WINDOW_MS);
 
           return ctx.reply(
-            `@${player.name} wants to street race! Message !race to line up at the starting line! Venue: ${race.venue}; Weather: ${race.weather}`
+            `${player.name} wants to street race! Message !race to line up at the starting line! Venue: ${race.venue}; Weather: ${race.weather}`
           );
         }
 
@@ -337,7 +337,7 @@ module.exports = {
           const countdown = formatLobbyCountdown(race.lobbyEndsAt, now);
 
           return ctx.reply(
-            `@${player.name} has joined the street race! venue: ${race.venue}; weather: ${race.weather}. ${countdown}`
+            `${player.name} has joined the street race! venue: ${race.venue}; weather: ${race.weather}. ${countdown}`
           );
         }
 
@@ -382,12 +382,12 @@ module.exports = {
 
         if (allPartsStock(parts)) {
           return ctx.reply(
-            `@${player.name} is driving a bone-stock sleeper. Everything is stock.`
+            `${player.name} is driving a bone-stock sleeper. Everything is stock.`
           );
         }
 
         await ctx.reply(
-          `@${player.name} has a car with ${tires} tires, ${suspension} suspension, ${brakes} brakes, ${intake} intake, ${exhaust} exhaust, ${ecu} ECU, ${carbonfiber} carbonfiber`
+          `${player.name} has a car with ${tires} tires, ${suspension} suspension, ${brakes} brakes, ${intake} intake, ${exhaust} exhaust, ${ecu} ECU, ${carbonfiber} carbonfiber`
         );
       },
     },
@@ -447,7 +447,7 @@ module.exports = {
 
         setPlayerPart(player.id, partKey, choiceKey, UPGRADE_COST);
         await ctx.reply(
-          `@${player.name} upgraded their ${partKey} to ${choiceKey} for ${UPGRADE_COST} cash.`
+          `${player.name} upgraded their ${partKey} to ${choiceKey} for ${UPGRADE_COST} cash.`
         );
       },
     },
