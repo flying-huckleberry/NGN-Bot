@@ -10,7 +10,9 @@ const { createRouter } = require('./core/router');
 const league = require('./services/league'); // so ctx.services.league works
 
 // Simple logger; swap to your logger util if you want
-const logger = console;
+const { logger, getLogger } = require('./utils/logger');
+const botLogger = getLogger('bot');
+
 
 // Use a different port than the main bot to avoid conflicts
 const PLAYGROUND_PORT = process.env.PLAYGROUND_PORT || 4000;
@@ -67,30 +69,66 @@ const PLAYGROUND_PLAYERS = [
   const registry = loadModules(modulesDir);
 
   // 2) Build a context factory for the playground
+  // 2) Build a context factory for the playground
   function buildContextFactoryForPlayground() {
     return async function buildContext({ msg, liveChatId, args }) {
       const author = msg && msg.authorDetails ? msg.authorDetails : null;
 
-      return {
+      const authorName = author?.displayName || 'unknown';
+
+      // Extract the raw chat text from the fake YouTube message
+      const rawText =
+        msg?.snippet?.textMessageDetails?.messageText ||
+        msg?.snippet?.displayMessage ||
+        '';
+
+      // crude command name: first token, strip leading "!"
+      const firstToken = rawText.trim().split(/\s+/)[0] || '';
+      const commandName = firstToken.startsWith('!')
+        ? firstToken.slice(1)
+        : firstToken;
+
+      const ctx = {
         env,
         services: {
           registry,
           league,
-          // you can add more services here if needed, e.g. youtube: null
+          // you can add more services here if needed
         },
         state: {}, // no global g-state needed here
-        logger,
+        logger,     // app logger
+        botLogger,  // bot logger
         msg,
         liveChatId,
         args,
         author,
-        user: author, // optional alias if modules ever expect ctx.user
-        reply: async (text) => {
-          pushLog(text);
-        },
+        user: author,    // optional alias if modules ever expect ctx.user
+        authorName,
+        commandName,
       };
+
+      // Wrap reply: log command.response, then push into playground log
+      ctx.reply = async (text, meta = {}) => {
+        const reply = String(text ?? '');
+
+        try {
+          botLogger.info('command.response', {
+            command: ctx.commandName,
+            user: ctx.authorName,
+            reply,
+            ...meta,
+          });
+        } catch (err) {
+          // don't let logging failures break playground
+        }
+
+        pushLog(reply);
+      };
+
+      return ctx;
     };
   }
+
 
   // 3) Wrap dispatch so we can inject a fresh buildContext per request and a chosen player
   async function runCommandText(rawText, player) {

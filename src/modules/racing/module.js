@@ -321,8 +321,6 @@ module.exports = {
           );
         }
 
-
-        // Race lobby active
         // Race lobby active
         if (race.lobbyEndsAt && race.lobbyEndsAt <= now) {
           // Lobby expired but timer may have been lost (e.g., after restart).
@@ -352,7 +350,7 @@ module.exports = {
       name: 'venue',
       description: 'Show the next race venue and weather.',
       usage: 'venue',
-      aliases: [],
+      aliases: ['track'],
       async run(ctx) {
         const nextRace = getNextRace();
         await ctx.reply(
@@ -365,7 +363,7 @@ module.exports = {
       name: 'car',
       description: 'Show your current car build.',
       usage: 'car',
-      aliases: [],
+      aliases: ['garage'],
       async run(ctx) {
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
@@ -397,8 +395,8 @@ module.exports = {
     upgrade: {
       name: 'upgrade',
       description: 'View or purchase car upgrades.',
-      usage: 'upgrade [part] [name]',
-      aliases: [],
+      usage: 'upgrade <part> <name>',
+      aliases: ['modify'],
       async run(ctx) {
         const args = ctx.args || [];
         const userId = getPlayerId(ctx);
@@ -455,9 +453,9 @@ module.exports = {
     },
     racereset: {
       name: 'racereset',
-      description: 'Owner-only: reset all racing data.',
+      description: 'OWNER-ONLY: Reset all racing data.',
       usage: 'racereset',
-      aliases: [],
+      aliases: ['resetrace'],
       middleware: [ownerOnly()], // ← only the owner can run this command
       async run(ctx) {
         const { resetAll, rollNextRace } = require('../../services/racing/state');
@@ -475,7 +473,7 @@ module.exports = {
       name: 'cash',
       description: 'Show your current cash balance.',
       usage: 'cash',
-      aliases: [],
+      aliases: ['money'],
       async run(ctx) {
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);

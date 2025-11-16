@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "dev": "node src/playground.js"
   },
   "author": "Huckleberry",
   "license": "MIT",
@@ -15,6 +15,8 @@
     "express": "^5.1.0",
     "googleapis": "^166.0.0",
     "open": "^10.2.0",
-    "openai": "^6.8.1"
+    "openai": "^6.8.1",
+    "winston": "^3.18.3",
+    "winston-daily-rotate-file": "^5.0.0"
   }
 }

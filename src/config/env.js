@@ -1,13 +1,15 @@
 // src/config/env.js
 const path = require("path");
+const { logger } = require('../utils/logger'); 
+
 const dotenvPath = path.join(__dirname, "..", "..", ".env");
 
 const dotenvResult = require("dotenv").config({ path: dotenvPath });
 
 if (dotenvResult.error) {
-  console.error("Failed to load .env:", dotenvResult.error);
+  logger.error("Failed to load .env:", dotenvResult.error);
 } else {
-  console.log("Loaded .env from", dotenvPath);
+  logger.info("Loaded .env from", dotenvPath);
 }
 
 
@@ -43,7 +45,7 @@ const {
 
 // validate critical oauth vars early
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
-  console.error('Missing Google OAuth env vars. Check .env.example.');
+  logger.error('Missing Google OAuth env vars. Check .env.example.');
   process.exit(1);
 }
 

@@ -1,6 +1,8 @@
 // src/services/racing/state.js
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('../../utils/logger'); 
+
 const partsConfig = require('./parts');
 
 const STATE_PATH = path.join(__dirname, '..', 'state', 'racing.json');
@@ -28,7 +30,7 @@ function loadState() {
       }
     }
   } catch (err) {
-    console.error('[racing] Failed to load state:', err);
+    logger.error('[racing] Failed to load state:', err);
   }
 }
 
@@ -38,7 +40,7 @@ function saveState() {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
   } catch (err) {
-    console.error('[racing] Failed to save state:', err);
+    logger.error('[racing] Failed to save state:', err);
   }
 }
 

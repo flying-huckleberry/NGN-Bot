@@ -4,8 +4,9 @@
 
 const { oauth2Client, saveOAuthTokens } = require('../services/youtube');
 const { SCOPES } = require('../config/env');
+const { logger } = require('../utils/logger'); 
 
-function mountAuthRoutes(app, { onAuthed, log = console.log } = {}) {
+function mountAuthRoutes(app, { onAuthed, log = logger.log } = {}) {
   app.get('/auth', (req, res) => {
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
@@ -24,12 +25,12 @@ function mountAuthRoutes(app, { onAuthed, log = console.log } = {}) {
       oauth2Client.setCredentials(tokens);
       saveOAuthTokens(tokens);
       res.send('Auth successful. You can close this tab and return to the terminal.');
-      console.info('✅ Saved tokens to token.json (BOT identity).');
+      logger.info('✅ Saved tokens to token.json (BOT identity).');
       if (typeof onAuthed === 'function') onAuthed();
     } catch (err) {
       // Keep message terse so it’s visible in browser
       res.status(500).send('OAuth error');
-      console.error('OAuth error:', err);
+      logger.error('OAuth error:', err);
     }
   });
 }

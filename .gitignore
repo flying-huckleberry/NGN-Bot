@@ -1,6 +1,8 @@
 # Node
 node_modules/
+src/logs/
 *.log
+*-audit.json
 
 # Environment & secrets
 .env
@@ -10,5 +12,5 @@ node_modules/
 # Auth tokens
 token.json
 
-# state files
+# State Files
 dev_state.json

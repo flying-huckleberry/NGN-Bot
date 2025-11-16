@@ -1,4 +1,7 @@
 // src/modules/league/module.js
+const { getLogger } = require('../../utils/logger');
+const botLogger = getLogger('bot');
+
 module.exports = {
   name: 'league',
   description: 'Fun/knowledge via APILeague (constrained for chat).',
@@ -16,13 +19,23 @@ module.exports = {
         try {
           const text = await ctx.services.league.randomJoke({ maxLength: max });
           const out = text || 'No joke.';
-          await ctx.reply(
+          const msg =
             out.length > ctx.env.CHAT_MAX_CHARS
               ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
-              : out
-          );
+              : out;
+
+          botLogger.info('[league.joke] sending', {
+            user: ctx.authorName,
+            max,
+            out: msg,
+          });
+
+          await ctx.reply(msg);
         } catch (e) {
-          ctx.logger.warn('[league.joke]', e.message || e);
+          botLogger.warn('[league.joke] failed', {
+            user: ctx.authorName,
+            error: e.message || String(e),
+          });
           await ctx.reply('No joke right now.');
         }
       },
@@ -41,13 +54,23 @@ module.exports = {
         try {
           const text = await ctx.services.league.randomTrivia({ maxLength: max });
           const out = text || 'No trivia.';
-          await ctx.reply(
+          const msg =
             out.length > ctx.env.CHAT_MAX_CHARS
               ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
-              : out
-          );
+              : out;
+
+          botLogger.info('[league.trivia] sending', {
+            user: ctx.authorName,
+            max,
+            out: msg,
+          });
+
+          await ctx.reply(msg);
         } catch (e) {
-          ctx.logger.warn('[league.trivia]', e.message || e);
+          botLogger.warn('[league.trivia] failed', {
+            user: ctx.authorName,
+            error: e.message || String(e),
+          });
           await ctx.reply('No trivia right now.');
         }
       },
@@ -55,34 +78,52 @@ module.exports = {
 
     riddle: {
       name: 'riddle',
-      description: 'Random riddle. Difficulty is fixed in code, answer is revlealed after a delay.).',
+      description:
+        'Random riddle. Difficulty is fixed in code, answer is revealed after a delay.',
       usage: 'league riddle',
       async run(ctx) {
         try {
           const { riddle, answer } = await ctx.services.league.randomRiddle();
-          
+
           const max = ctx.env.CHAT_MAX_CHARS || 190;
           const clamp = (text) =>
             String(text || '').length > max
-              ? String(text || '').slice(0, max-1) + '...'
+              ? String(text || '').slice(0, max - 1) + '...'
               : String(text || '');
 
           const riddleMsg = clamp(riddle || 'No riddle.');
-          await ctx.reply(riddleMsg);
-          console.log('[league.riddle] sent riddle:', riddleMsg);
 
-          // Delay before revealing the answer
-          const timeoutMs = Number(ctx.env.RIDDLE_TIMEOUT || 120000); //2 mins
+          botLogger.info('[league.riddle] sending riddle', {
+            user: ctx.authorName,
+            riddle: riddleMsg,
+          });
+
+          await ctx.reply(riddleMsg);
+
+          const timeoutMs = Number(ctx.env.RIDDLE_TIMEOUT || 120000); // 2 mins
 
           setTimeout(() => {
             const reveal = clamp(`Answer: ${answer} || ${riddleMsg}`);
-            console.log('[league.riddle] sending answer:', reveal);
-            // no await inside setTimeout; fire-and-forget
-            ctx.reply(reveal);
-          }, timeoutMs);
 
+            botLogger.info('[league.riddle] sending answer', {
+              user: ctx.authorName,
+              reveal,
+            });
+
+            // fire-and-forget; add catch to avoid unhandled rejection noise
+            ctx
+              .reply(reveal)
+              .catch(err =>
+                botLogger.error('[league.riddle] reply failed', {
+                  error: err.message || String(err),
+                })
+              );
+          }, timeoutMs);
         } catch (e) {
-          ctx.logger.warn('[league.riddle]', e.message || e);
+          botLogger.warn('[league.riddle] failed', {
+            user: ctx.authorName,
+            error: e.message || String(e),
+          });
           await ctx.reply('No riddle right now.');
         }
       },
@@ -105,13 +146,24 @@ module.exports = {
             maxLength: max,
           });
           const out = text || 'No quote.';
-          await ctx.reply(
+          const msg =
             out.length > ctx.env.CHAT_MAX_CHARS
               ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
-              : out
-          );
+              : out;
+
+          botLogger.info('[league.quote] sending', {
+            user: ctx.authorName,
+            min,
+            max,
+            out: msg,
+          });
+
+          await ctx.reply(msg);
         } catch (e) {
-          ctx.logger.warn('[league.quote]', e.message || e);
+          botLogger.warn('[league.quote] failed', {
+            user: ctx.authorName,
+            error: e.message || String(e),
+          });
           await ctx.reply('No quote right now.');
         }
       },
@@ -125,13 +177,22 @@ module.exports = {
         try {
           const text = await ctx.services.league.randomPoem();
           const out = text || 'No poem.';
-          await ctx.reply(
+          const msg =
             out.length > ctx.env.CHAT_MAX_CHARS
               ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
-              : out
-          );
+              : out;
+
+          botLogger.info('[league.poem] sending', {
+            user: ctx.authorName,
+            out: msg,
+          });
+
+          await ctx.reply(msg);
         } catch (e) {
-          ctx.logger.warn('[league.poem]', e.message || e);
+          botLogger.warn('[league.poem] failed', {
+            user: ctx.authorName,
+            error: e.message || String(e),
+          });
           await ctx.reply('No poem right now.');
         }
       },
@@ -148,7 +209,6 @@ module.exports = {
           return ctx.reply('Usage: !league convert <amount> <fromUnit> <toUnit>');
         }
 
-        // you can add more validation here if you want
         try {
           const answer = await ctx.services.league.convertUnits({
             sourceAmount: amount,
@@ -158,11 +218,23 @@ module.exports = {
 
           const out = answer || 'No conversion result.';
           const max = ctx.env.CHAT_MAX_CHARS;
-          await ctx.reply(
-            out.length > max ? out.slice(0, max - 1) + '…' : out
-          );
+          const msg =
+            out.length > max ? out.slice(0, max - 1) + '…' : out;
+
+          botLogger.info('[league.convert] sending', {
+            user: ctx.authorName,
+            amount,
+            fromUnit,
+            toUnit,
+            out: msg,
+          });
+
+          await ctx.reply(msg);
         } catch (e) {
-          ctx.logger.warn('[league.convert]', e.message || e);
+          botLogger.warn('[league.convert] failed', {
+            user: ctx.authorName,
+            error: e.message || String(e),
+          });
           await ctx.reply('Conversion failed.');
         }
       },

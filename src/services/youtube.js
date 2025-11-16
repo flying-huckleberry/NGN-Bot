@@ -1,6 +1,7 @@
 // src/services/youtube.js
 const { google } = require('googleapis');
 const fs = require('fs');
+const { logger } = require('../utils/logger'); 
 
 const {
   GOOGLE_CLIENT_ID,
@@ -25,13 +26,16 @@ const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
  * (Non-blocking: we keep OAuth server/flow wiring elsewhere.)
  */
 function initYoutubeAuthIfTokenExists() {
+  logger.info('initting');
   try {
     if (fs.existsSync(TOKEN_PATH)) {
       const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
       oauth2Client.setCredentials(tokens);
       return true;
     }
-  } catch {}
+  } catch {
+    logger.error('failed to initialize YouTube auth.');
+  }
   return false;
 }
 
@@ -87,7 +91,7 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
     throw new Error('Live video found but no active chat (chat disabled or members-only).');
   }
 
-  console.info(`🎬 Monitoring live: "${title}" (${videoId})`);
+  logger.info(`🎬 Monitoring live: "${title}" (${videoId})`);
   return liveChatId;
 }
 

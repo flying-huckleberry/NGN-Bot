@@ -5,11 +5,12 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { ROOT_DIR, MODE, PORT, TARGET_LIVESTREAM_URL, TARGET_CHANNEL_ID, TARGET_TITLE_MATCH, POLLING_FALLBACK_MS, BOT_START_MS } = require('./config/env');
+const { logger } = require('./utils/logger');
 
 const rootPkg = path.join(ROOT_DIR, 'package.json');
 if (!fs.existsSync(rootPkg)) {
-  console.error(`❌ Startup error: expected to find package.json in ROOT_DIR (${ROOT_DIR})`);
-  console.error('Please run this script from the project root directory.');
+  logger.error(`❌ Startup error: expected to find package.json in ROOT_DIR (${ROOT_DIR})`);
+  logger.error('Please run this script from the project root directory.');
   process.exit(1);
 }
 
@@ -65,7 +66,7 @@ const g = require('./state/g');
 
   // 4) Start HTTP server and proceed based on token presence
   const server = app.listen(PORT, async () => {
-    console.info(`HTTP server on http://localhost:${PORT}`);
+    logger.info(`HTTP server on http://localhost:${PORT}`);
 
     if (!initYoutubeAuthIfTokenExists()) {
       await open(`http://localhost:${PORT}/auth`);
@@ -155,7 +156,7 @@ const g = require('./state/g');
         (Number.isFinite(+POLLING_FALLBACK_MS) ? +POLLING_FALLBACK_MS : 2000);
       setTimeout(() => pollLoop(liveChatId), delay);
     } catch (err) {
-      console.error('Polling error:', err?.errors?.[0] || err.message || err);
+      logger.error('Polling error:', err?.errors?.[0] || err.message || err);
       setTimeout(() => pollLoop(liveChatId), 5000);
     }
   }
@@ -164,7 +165,7 @@ const g = require('./state/g');
   async function startBot() {
     try {
       if (MODE === 'dev') {
-        console.info('✅ Running in DEV mode — open /dev for manual connect & poll');
+        logger.info('✅ Running in DEV mode — open /dev for manual connect & poll');
         return;
       }
 
@@ -194,12 +195,12 @@ const g = require('./state/g');
       g.primed = true;
 
       const interval = Number(POLLING_FALLBACK_MS || 10000);
-      console.info(`✅ PROD: Connected. Listening roughly every ${interval}ms…`);
+      logger.info(`✅ PROD: Connected. Listening roughly every ${interval}ms…`);
 
       // Kick off the continuous polling loop that uses the module router
       pollLoop(liveChatId);
     } catch (err) {
-      console.error(err.message || err);
+      logger.error(err.message || err);
       process.exit(1);
     }
   }
