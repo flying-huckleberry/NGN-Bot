@@ -31,7 +31,7 @@ const modulesDir = path.join(__dirname, '..', 'modules');
 const registry = loadModules(modulesDir);
 
 function buildContextFactoryForPlayground() {
-  return async function buildContext({ msg, liveChatId, args }) {
+  return async function buildContext({ msg, liveChatId, args, transport }) {
     const author = msg && msg.authorDetails ? msg.authorDetails : null;
     const authorName = author?.displayName || 'unknown';
 
@@ -44,6 +44,15 @@ function buildContextFactoryForPlayground() {
     const commandName = firstToken.startsWith('!')
       ? firstToken.slice(1)
       : firstToken;
+
+    const activeTransport =
+      transport ||
+      {
+        type: 'playground',
+        async send(text) {
+          pushLog(text);
+        },
+      };
 
     const ctx = {
       env,
@@ -58,6 +67,8 @@ function buildContextFactoryForPlayground() {
       user: author,
       authorName,
       commandName,
+      transport: activeTransport,
+      platform: activeTransport?.type || 'playground',
     };
 
     ctx.reply = async (text, meta = {}) => {
@@ -72,7 +83,11 @@ function buildContextFactoryForPlayground() {
         });
       } catch (_) {}
 
-      pushLog(reply);
+      if (activeTransport?.send) {
+        await activeTransport.send(reply);
+      } else {
+        pushLog(reply);
+      }
     };
 
     return ctx;
@@ -101,7 +116,14 @@ async function runCommandText(rawText, player) {
   const buildContext = buildContextFactoryForPlayground();
   const dispatch = createRouter({ registry, buildContext });
 
-  await dispatch({ msg: fakeMsg, liveChatId: 'PLAYGROUND' });
+  const transport = {
+    type: 'playground',
+    async send(text) {
+      pushLog(text);
+    },
+  };
+
+  await dispatch({ msg: fakeMsg, liveChatId: 'PLAYGROUND', transport });
 
   const after = PLAYGROUND_LOG.length;
   if (after > before) {

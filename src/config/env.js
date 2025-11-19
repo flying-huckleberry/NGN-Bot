@@ -24,6 +24,14 @@ const TOKEN_PATH = path.join(ROOT_DIR, 'token.json');
 const DEV_STATE_PATH = path.join(ROOT_DIR, 'dev_state.json');
 
 // destructured env (matches your current usage)
+function parseCsv(value, { defaultValue = [] } = {}) {
+  if (!value) return [...defaultValue];
+  return value
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
 const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -41,6 +49,10 @@ const {
   RIDDLE_TIMEOUT = '120000',
   RACE_COOLDOWN_MS = '1000000',
   RACE_JOIN_WINDOW_MS = '120000',
+  DISCORD_BOT_TOKEN = '',
+  DISCORD_ALLOWED_GUILD_IDS = '',
+  DISCORD_ALLOWED_CHANNEL_IDS = '',
+  DISABLED_MODULES = 'racing',
 } = process.env;
 
 // validate critical oauth vars early
@@ -102,5 +114,13 @@ module.exports = {
 
   // Racing Game
   RACE_COOLDOWN_MS,
-  RACE_JOIN_WINDOW_MS
+  RACE_JOIN_WINDOW_MS,
+
+  // Discord transport
+  DISCORD_BOT_TOKEN,
+  DISCORD_ALLOWED_GUILD_IDS: parseCsv(DISCORD_ALLOWED_GUILD_IDS),
+  DISCORD_ALLOWED_CHANNEL_IDS: parseCsv(DISCORD_ALLOWED_CHANNEL_IDS),
+
+  // Modules
+  DISABLED_MODULES: parseCsv(DISABLED_MODULES || 'racing'),
 };

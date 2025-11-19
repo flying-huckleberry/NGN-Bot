@@ -11,6 +11,7 @@ A modular Node.js application that connects to YouTube Live Chat, processes comm
  **Playground mode** – Fully offline simulation of YouTube chat for testing commands.
  **YouTube OAuth2 authentication** – Logs in the bot account securely.
  **Unified Web UI** – Dev panel and playground accessible from the browser.
+ **Discord transport** – Optional discord.js listener runs beside YouTube chat.
  **Modular command system** – Commands stored in `src/modules/`.
  **Quota tracking** – Estimates API cost and resets daily at midnight PST.
  **State persistence** – DEV mode saves state to avoid repeated expensive API lookups.
@@ -52,7 +53,6 @@ Example `.env`:
 ```env
 MODE=dev
 PORT=3000
-PLAYGROUND_PORT=4000
 
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
@@ -67,6 +67,14 @@ TARGET_LIVESTREAM_URL=https://www.youtube.com/watch?v=XXXX
 COMMAND_PREFIX=!
 YT_DAILY_QUOTA=10000
 POLL_ESTIMATE_UNITS=5
+
+# Discord transport (optional)
+DISCORD_BOT_TOKEN=your-discord-bot-token
+DISCORD_ALLOWED_GUILD_IDS=
+DISCORD_ALLOWED_CHANNEL_IDS=
+
+# Disable modules (CSV, defaults to racing for multi-transport rollout)
+DISABLED_MODULES=racing
 ```
 
 Target selection priority:
@@ -105,6 +113,8 @@ http://localhost:4000
 
 No API calls are performed in this mode.
 
+### Discord transport
+If `DISCORD_BOT_TOKEN` is present, the bot also starts a discord.js client in the same Node.js process. Discord chat messages that begin with the configured command prefix are routed through the same command registry and replies are posted only to the originating Discord channel. Optional `DISCORD_ALLOWED_GUILD_IDS` / `DISCORD_ALLOWED_CHANNEL_IDS` lists can scope which servers or channels are handled. The Dev Panel shows a simple status block so you can confirm whether the Discord client is connected; there is no separate playground/dev flow for Discord because the API does not impose comparable quota constraints.
 
 
 ## Web UI Overview
@@ -121,7 +131,7 @@ Main interface for development:
  Reset dev state  
  View raw JSON debug panel  
 
-### `/playground`
+### `/sandbox`
 Offline fakechat environment:
 
  Select a fake player identity  

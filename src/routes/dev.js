@@ -31,6 +31,7 @@ function renderDev(status = {}) {
     stateFile = null,      // 'present' | 'missing' | null (from route)
     lastPoll = null,       // { received, handled } if provided
     botAuthChannelId = null,
+    discordStatus = null,
   } = status;
 
   // Fallback: if stateFile not passed, we can still do a direct check
@@ -133,6 +134,36 @@ function renderDev(status = {}) {
     </div>
   `;
 
+  const discordState = discordStatus?.state || (discordStatus?.enabled ? 'offline' : 'disabled');
+  const discordConnected = discordState === 'ready';
+  const discordStatusHtml = `
+    <div style="background:#111827; padding:16px; border-radius:8px; margin-bottom:16px;">
+      <h3 style="margin-top:0;">Discord Transport</h3>
+      <div style="font-size:0.9rem; line-height:1.6;">
+        <div><strong>Status:</strong> ${
+          discordConnected
+            ? '<span style="color:#6ee7b7;">Connected</span>'
+            : `<span style="color:#fbbf24;">${discordState}</span>`
+        }</div>
+        ${
+          discordStatus?.username
+            ? `<div><strong>Bot:</strong> ${discordStatus.username}</div>`
+            : ''
+        }
+        ${
+          discordStatus?.readyAt
+            ? `<div><strong>Ready at:</strong> ${discordStatus.readyAt}</div>`
+            : ''
+        }
+        ${
+          discordStatus?.lastError
+            ? `<div style="color:#f87171;"><strong>Last error:</strong> ${discordStatus.lastError}</div>`
+            : ''
+        }
+      </div>
+    </div>
+  `;
+
   const inner = `
     <h2>YT Bot — Dev Panel</h2>
     <p>Mode: <b style="color:#93c5fd">DEV</b> — manual control to conserve quota.</p>
@@ -146,6 +177,7 @@ function renderDev(status = {}) {
 
     ${quotaHtml}
     ${connectionInfoHtml}
+    ${discordStatusHtml}
     ${lastPollHtml}
 
     <div class="row" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
@@ -187,23 +219,31 @@ function renderDev(status = {}) {
  * @param {import('express').Express} app
  * @param {object} options  { pollOnce, commands }
  */
-function registerDevRoutes(app, { pollOnce, commands }) {
+function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
   app.use(express.urlencoded({ extended: true }));
 
   // Load state early so UI reflects cache immediately
   loadDevState(g);
 
+  const withDiscordStatus = (payload = {}) => ({
+    ...payload,
+    discordStatus:
+      typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+  });
+
   // Main dev panel at "/"
   app.get('/', (req, res) => {
     const quota = getQuotaInfo();
     res.send(
-      renderDev({
-        quota,
-        liveChatId: g.liveChatId,
-        nextPageToken: g.nextPageToken,
-        primed: g.primed,
-        stateFile: devStateExists() ? 'present' : 'missing',
-      })
+      renderDev(
+        withDiscordStatus({
+          quota,
+          liveChatId: g.liveChatId,
+          nextPageToken: g.nextPageToken,
+          primed: g.primed,
+          stateFile: devStateExists() ? 'present' : 'missing',
+        })
+      )
     );
   });
 
@@ -227,24 +267,28 @@ function registerDevRoutes(app, { pollOnce, commands }) {
       const quota = addQuotaUsage(estimatedUnits);
 
       return res.send(
-        renderDev({
-          liveChatId,
-          primed: true,
-          resolvedMethod: method,
-          targetInfo,
-          message: `Connected and primed successfully. ~${estimatedUnits} units.`,
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            liveChatId,
+            primed: true,
+            resolvedMethod: method,
+            targetInfo,
+            message: `Connected and primed successfully. ~${estimatedUnits} units.`,
+            quota,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     } catch (err) {
       const quota = getQuotaInfo();
       return res.send(
-        renderDev({
-          error: err.message || String(err),
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            error: err.message || String(err),
+            quota,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     }
   });
@@ -254,11 +298,13 @@ function registerDevRoutes(app, { pollOnce, commands }) {
     if (!g.liveChatId) {
       const quota = getQuotaInfo();
       return res.send(
-        renderDev({
-          error: 'Not connected.',
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            error: 'Not connected.',
+            quota,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     }
 
@@ -271,23 +317,27 @@ function registerDevRoutes(app, { pollOnce, commands }) {
       const quota = getQuotaInfo(); // priming cost is already accounted at connect time
 
       res.send(
-        renderDev({
-          primed: g.primed,
-          token,
-          liveChatId: g.liveChatId,
-          quota,
-          message: 'Re-primed: starting fresh from current point in chat.',
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            primed: g.primed,
+            token,
+            liveChatId: g.liveChatId,
+            quota,
+            message: 'Re-primed: starting fresh from current point in chat.',
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     } catch (e) {
       const quota = getQuotaInfo();
       res.send(
-        renderDev({
-          error: e.message || String(e),
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            error: e.message || String(e),
+            quota,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     }
   });
@@ -297,11 +347,13 @@ function registerDevRoutes(app, { pollOnce, commands }) {
     if (!g.liveChatId) {
       const quota = getQuotaInfo();
       return res.send(
-        renderDev({
-          error: 'Not connected.',
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            error: 'Not connected.',
+            quota,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     }
 
@@ -311,27 +363,31 @@ function registerDevRoutes(app, { pollOnce, commands }) {
       const quota = addQuotaUsage(5);
 
       return res.send(
-        renderDev({
-          liveChatId: g.liveChatId,
-          primed: g.primed,
-          lastPoll: {
-            received: result.received,
-            handled: result.handled,
-          },
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            liveChatId: g.liveChatId,
+            primed: g.primed,
+            lastPoll: {
+              received: result.received,
+              handled: result.handled,
+            },
+            quota,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     } catch (e) {
       const quota = getQuotaInfo();
       return res.send(
-        renderDev({
-          error: e.message || String(e),
-          quota,
-          liveChatId: g.liveChatId,
-          primed: g.primed,
-          stateFile: devStateExists() ? 'present' : 'missing',
-        })
+        renderDev(
+          withDiscordStatus({
+            error: e.message || String(e),
+            quota,
+            liveChatId: g.liveChatId,
+            primed: g.primed,
+            stateFile: devStateExists() ? 'present' : 'missing',
+          })
+        )
       );
     }
   });
@@ -340,15 +396,17 @@ function registerDevRoutes(app, { pollOnce, commands }) {
   app.post('/dev/whoami', async (req, res) => {
     const quota = getQuotaInfo();
     res.send(
-      renderDev({
-        botAuthChannelId: 'unknown (derive as needed)',
-        liveChatId: g.liveChatId,
-        nextPageToken: g.nextPageToken,
-        primed: g.primed,
-        quota,
-        stateFile: devStateExists() ? 'present' : 'missing',
-        message: 'WhoAmI: see Raw Status for current g/dev state.',
-      })
+      renderDev(
+        withDiscordStatus({
+          botAuthChannelId: 'unknown (derive as needed)',
+          liveChatId: g.liveChatId,
+          nextPageToken: g.nextPageToken,
+          primed: g.primed,
+          quota,
+          stateFile: devStateExists() ? 'present' : 'missing',
+          message: 'WhoAmI: see Raw Status for current g/dev state.',
+        })
+      )
     );
   });
 
@@ -358,15 +416,17 @@ function registerDevRoutes(app, { pollOnce, commands }) {
 
     const quota = getQuotaInfo();
     res.send(
-      renderDev({
-        reset: true,
-        liveChatId: g.liveChatId,
-        nextPageToken: g.nextPageToken,
-        primed: g.primed,
-        quota,
-        stateFile: devStateExists() ? 'present' : 'missing',
-        message: 'Dev state reset.',
-      })
+      renderDev(
+        withDiscordStatus({
+          reset: true,
+          liveChatId: g.liveChatId,
+          nextPageToken: g.nextPageToken,
+          primed: g.primed,
+          quota,
+          stateFile: devStateExists() ? 'present' : 'missing',
+          message: 'Dev state reset.',
+        })
+      )
     );
   });
 }

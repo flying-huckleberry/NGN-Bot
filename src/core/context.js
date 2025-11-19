@@ -6,7 +6,7 @@ const { logger, getLogger } = require('../utils/logger');
 const botLogger = getLogger('bot');
 
 function buildContextFactory(services) {
-  return async function buildContext({ msg, liveChatId, args }) {
+  return async function buildContext({ msg, liveChatId, args, transport, platformMeta }) {
     // Best-effort extraction of the author name
     const authorName =
       msg?.authorDetails?.displayName ||
@@ -21,6 +21,15 @@ function buildContextFactory(services) {
       ? firstToken.slice(1)
       : firstToken;
 
+    const activeTransport =
+      transport ||
+      {
+        type: 'youtube',
+        async send(text) {
+          await sendChatMessage(liveChatId, text);
+        },
+      };
+
     const ctx = {
       env,
       services,
@@ -32,6 +41,9 @@ function buildContextFactory(services) {
       args,
       authorName,
       commandName,
+      transport: activeTransport,
+      platform: activeTransport?.type || 'youtube',
+      platformMeta,
     };
 
     // Wrap reply: always log command.response, then send message
@@ -49,7 +61,11 @@ function buildContextFactory(services) {
         // Don't let logging failure break replies
       }
 
-      await sendChatMessage(liveChatId, reply);
+      if (activeTransport?.send) {
+        await activeTransport.send(reply);
+      } else {
+        await sendChatMessage(liveChatId, reply);
+      }
     };
 
     return ctx;

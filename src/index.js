@@ -40,6 +40,7 @@ const {
   youtube,
   initYoutubeAuthIfTokenExists,
   primeChat,
+  sendChatMessage,
 } = safeRequire('YouTube service', './services/youtube');
 
 const { resolveTargetLiveChatId } = safeRequire(
@@ -56,6 +57,10 @@ const { registerPlaygroundRoutes } = safeRequire(
   'Playground routes',
   './routes/playground'
 );
+const {
+  startDiscordTransport,
+  getDiscordStatus,
+} = safeRequire('Discord transport', './services/discord');
 
 // Core
 const { createRouter } = safeRequire('Router core', './core/router');
@@ -89,10 +94,17 @@ const g = safeRequire('Global state g', './state/g');
     registerDevRoutes(app, {
       pollOnce: (liveChatId) => pollOnceWithDispatch(liveChatId, dispatch),
       commands: {},
+      getDiscordStatus,
     });
 
     // 4) Playground routes
     registerPlaygroundRoutes(app);
+
+    try {
+      await startDiscordTransport({ dispatch });
+    } catch (err) {
+      logger.warn(`Discord transport failed to start: ${err?.message || err}`);
+    }
 
     // 5) Start HTTP server and proceed based on token presence
     app.listen(PORT, async () => {
@@ -108,7 +120,18 @@ const g = safeRequire('Global state g', './state/g');
     // ── helpers ───────────────────────────────────────────────────────
 
     // Poll exactly one page and dispatch each message through the module router.
+    function createYoutubeTransport(liveChatId) {
+      return {
+        type: 'youtube',
+        liveChatId,
+        async send(text) {
+          await sendChatMessage(liveChatId, text);
+        },
+      };
+    }
+
     async function pollOnceWithDispatch(liveChatId, dispatchFn) {
+      const youtubeTransport = createYoutubeTransport(liveChatId);
       let res;
       try {
         res = await youtube.liveChatMessages.list({
@@ -144,7 +167,7 @@ const g = safeRequire('Global state g', './state/g');
         const publishedAt = msg?.snippet?.publishedAt;
         if (publishedAt && Date.parse(publishedAt) < BOT_START_MS) continue;
 
-        await dispatchFn({ msg, liveChatId });
+        await dispatchFn({ msg, liveChatId, transport: youtubeTransport });
         handled++;
       }
 
@@ -177,7 +200,11 @@ const g = safeRequire('Global state g', './state/g');
           const publishedAt = msg?.snippet?.publishedAt;
           if (publishedAt && Date.parse(publishedAt) < BOT_START_MS) continue;
 
-          await dispatch({ msg, liveChatId });
+          await dispatch({
+            msg,
+            liveChatId,
+            transport: createYoutubeTransport(liveChatId),
+          });
         }
 
         g.nextPageToken = res.data.nextPageToken || g.nextPageToken;

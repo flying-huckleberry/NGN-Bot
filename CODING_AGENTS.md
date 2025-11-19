@@ -38,3 +38,10 @@ If you are running inside VS Code:
 - Do NOT modify files unless explicitly asked: e.g. “apply these changes to the codebase”.
 - When suggesting changes, provide code snippets instead of directly editing files.
 
+## Bugs to avoid
+
+README.md uses UTF‑8 punctuation. Prefer either:
+- using tooling that treats UTF‑8 literally (e.g., Python -X utf8)
+- or stick to apply_patch/Set-Content -Encoding UTF8 when editing
+
+Avoid `git show … > file` (or similar redirects) unless you really intend to replace the file.

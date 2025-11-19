@@ -5,7 +5,7 @@ const { parseText } = require('../utils/parse');
 // Returns dispatcher: (msg) => Promise<void>
 function createRouter({ registry, buildContext }) {
   // registry: { modules: { [moduleName]: ModuleManifest }, flat: Map<commandName, {mod, def}> }
-  return async function dispatch({ msg, liveChatId }) {
+  return async function dispatch({ msg, liveChatId, transport, platformMeta }) {
     const text = msg?.snippet?.textMessageDetails?.messageText || '';
     const parsed = parseText(text, COMMAND_PREFIX);
     if (!parsed) return; // not a command
@@ -16,7 +16,17 @@ function createRouter({ registry, buildContext }) {
     if (modName && cmdName) {
       const mod = registry.modules[modName];
       const def = mod?.commands?.[cmdName];
-      if (def) return runCommand({ mod, def, msg, liveChatId, args, buildContext });
+      if (def)
+        return runCommand({
+          mod,
+          def,
+          msg,
+          liveChatId,
+          args,
+          buildContext,
+          transport,
+          platformMeta,
+        });
     }
 
     // 2) space-separated form "!mod cmd"
@@ -24,22 +34,41 @@ function createRouter({ registry, buildContext }) {
       const [maybeCmd, ...rest] = args;
       const mod = registry.modules[modName];
       const def = mod?.commands?.[maybeCmd];
-      if (def) return runCommand({ mod, def, msg, liveChatId, args: rest, buildContext });
+      if (def)
+        return runCommand({
+          mod,
+          def,
+          msg,
+          liveChatId,
+          args: rest,
+          buildContext,
+          transport,
+          platformMeta,
+        });
     }
 
     // 3) flat "!cmd"
     const flat = registry.flat.get(modName);
     if (flat) {
       const { mod, def } = flat;
-      return runCommand({ mod, def, msg, liveChatId, args, buildContext });
+      return runCommand({
+        mod,
+        def,
+        msg,
+        liveChatId,
+        args,
+        buildContext,
+        transport,
+        platformMeta,
+      });
     }
 
     // else: unknown command → optionally reply or ignore
   };
 }
 
-async function runCommand({ mod, def, msg, liveChatId, args, buildContext }) {
-  const ctx = await buildContext({ msg, liveChatId, args });
+async function runCommand({ mod, def, msg, liveChatId, args, buildContext, transport, platformMeta }) {
+  const ctx = await buildContext({ msg, liveChatId, args, transport, platformMeta });
   const stack = [
     ...(mod.middleware || []),
     ...(def.middleware || []),
