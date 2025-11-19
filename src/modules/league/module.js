@@ -2,6 +2,11 @@
 const { getLogger } = require('../../utils/logger');
 const botLogger = getLogger('bot');
 
+function getChatLimit(env) {
+  const n = Number(env?.CHAT_MAX_CHARS);
+  return Number.isFinite(n) && n > 0 ? n : 300;
+}
+
 module.exports = {
   name: 'league',
   description: 'Fun/knowledge via APILeague (constrained for chat).',
@@ -9,24 +14,24 @@ module.exports = {
     joke: {
       name: 'joke',
       description: 'Random joke.',
-      usage: 'league joke [max=120]',
+      usage: 'league joke',
       async run(ctx) {
-        const kv = Object.fromEntries(
-          ctx.args.map(s => s.split('=')).filter(a => a.length === 2)
-        );
-        const max = kv.max ? Number(kv.max) : undefined;
+        const maxLength = getChatLimit(ctx.env);
 
         try {
-          const text = await ctx.services.league.randomJoke({ maxLength: max });
+          const text = await ctx.services.league.randomJoke({ 
+            'maxLength': maxLength,
+          });
           const out = text || 'No joke.';
+          botLogger.warn('returned joke is '+out.length+' characters long');
           const msg =
-            out.length > ctx.env.CHAT_MAX_CHARS
-              ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
+            out.length > maxLength
+              ? out.slice(0, maxLength - 1) + '…'
               : out;
 
           botLogger.info('[league.joke] sending', {
             user: ctx.authorName,
-            max,
+            maxLength,
             out: msg,
           });
 
@@ -44,24 +49,21 @@ module.exports = {
     trivia: {
       name: 'trivia',
       description: 'Random trivia.',
-      usage: 'league trivia [max=140]',
+      usage: 'league trivia',
       async run(ctx) {
-        const kv = Object.fromEntries(
-          ctx.args.map(s => s.split('=')).filter(a => a.length === 2)
-        );
-        const max = kv.max ? Number(kv.max) : undefined;
+        const maxLength = getChatLimit(ctx.env);
 
         try {
-          const text = await ctx.services.league.randomTrivia({ maxLength: max });
+          const text = await ctx.services.league.randomTrivia({ maxLength });
           const out = text || 'No trivia.';
           const msg =
-            out.length > ctx.env.CHAT_MAX_CHARS
-              ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
+            out.length > maxLength
+              ? out.slice(0, maxLength - 1) + '…'
               : out;
 
           botLogger.info('[league.trivia] sending', {
             user: ctx.authorName,
-            max,
+            maxLength,
             out: msg,
           });
 
@@ -85,7 +87,7 @@ module.exports = {
         try {
           const { riddle, answer } = await ctx.services.league.randomRiddle();
 
-          const max = ctx.env.CHAT_MAX_CHARS || 190;
+          const max = getChatLimit(ctx.env);
           const clamp = (text) =>
             String(text || '').length > max
               ? String(text || '').slice(0, max - 1) + '...'
@@ -132,29 +134,26 @@ module.exports = {
     quote: {
       name: 'quote',
       description: 'Random quote (min/max bounded in code).',
-      usage: 'league quote [min=40] [max=140]',
+      usage: 'league quote',
       async run(ctx) {
-        const kv = Object.fromEntries(
-          ctx.args.map(s => s.split('=')).filter(a => a.length === 2)
-        );
-        const min = kv.min ? Number(kv.min) : undefined;
-        const max = kv.max ? Number(kv.max) : undefined;
+        const maxLength = getChatLimit(ctx.env);
+        const minLength = 20;
 
         try {
           const text = await ctx.services.league.randomQuote({
-            minLength: min,
-            maxLength: max,
+            minLength,
+            maxLength,
           });
           const out = text || 'No quote.';
           const msg =
-            out.length > ctx.env.CHAT_MAX_CHARS
-              ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
+            out.length > maxLength
+              ? out.slice(0, maxLength - 1) + '…'
               : out;
 
           botLogger.info('[league.quote] sending', {
             user: ctx.authorName,
-            min,
-            max,
+            minLength,
+            maxLength,
             out: msg,
           });
 
@@ -174,12 +173,17 @@ module.exports = {
       description: 'Random short poem (1–4 lines, sanitized).',
       usage: 'league poem',
       async run(ctx) {
+        const maxLength = getChatLimit(ctx.env);
+
         try {
-          const text = await ctx.services.league.randomPoem();
+          const text = await ctx.services.league.randomPoem({
+            minLines: 1,
+            maxLines: 4,
+          });
           const out = text || 'No poem.';
           const msg =
-            out.length > ctx.env.CHAT_MAX_CHARS
-              ? out.slice(0, ctx.env.CHAT_MAX_CHARS - 1) + '…'
+            out.length > maxLength
+              ? out.slice(0, maxLength - 1) + '…'
               : out;
 
           botLogger.info('[league.poem] sending', {
@@ -217,7 +221,7 @@ module.exports = {
           });
 
           const out = answer || 'No conversion result.';
-          const max = ctx.env.CHAT_MAX_CHARS;
+          const max = getChatLimit(ctx.env);
           const msg =
             out.length > max ? out.slice(0, max - 1) + '…' : out;
 

@@ -66,7 +66,7 @@ async function randomJoke({ maxLength } = {}) {
     'include-tags': JOKE_DEFAULTS.includeTags,
     'exclude-tags': JOKE_DEFAULTS.excludeTags,
     'min-rating':   JOKE_DEFAULTS.minRating,
-    'max-length':   clampLen(maxLength), // between 10 and MAX_CHARS
+    maxLength:      clampLen(maxLength), // SDK copies to query param
   };
   const { data } = await randomJokeAPIP(apiOpts);
   // sanitize to one line for chat safety
@@ -78,7 +78,7 @@ async function randomJoke({ maxLength } = {}) {
  * Trivia with bounded length.
  */
 async function randomTrivia({ maxLength } = {}) {
-  const apiOpts = { 'max-length': clampLen(maxLength) };
+  const apiOpts = { maxLength: clampLen(maxLength) };
   const { data } = await randomTriviaAPIP(apiOpts);
   data.trivia = sanitizeOneLine(data.trivia);
   return data.trivia;
@@ -104,8 +104,8 @@ async function randomQuote({ minLength, maxLength } = {}) {
   const lo = clampLen(minLength);
   const hi = clampLen(maxLength);
   const apiOpts = {
-    'min-length': lo,
-    'max-length': hi,
+    minLength: lo,
+    maxLength: hi,
   };
   const { data } = await randomQuoteAPIP(apiOpts);
   data.quote = sanitizeOneLine(data.quote);
@@ -116,12 +116,12 @@ async function randomQuote({ minLength, maxLength } = {}) {
 }
 
 /**
- * Poem with fixed 1..4 lines and newline sanitization.
+ * Poem with bounded lines and newline sanitization.
  */
-async function randomPoem() {
+async function randomPoem({ minLines = 1, maxLines = 4 } = {}) {
   const apiOpts = {
-    'min-lines': 1,
-    'max-lines': 4,
+    minLines: clampLen(minLines, 1, 10),
+    maxLines: clampLen(maxLines, 1, 10),
   };
   const { data } = await randomPoemAPIP(apiOpts);
   // Replace newlines with ' / ' as required
