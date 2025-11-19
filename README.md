@@ -198,18 +198,19 @@ The router automatically handles parsing, owner checks, execution, and reply del
 ```
 src/
   index.js               # Main bot runtime  web UI server
-  playground.js          # Offline playground server
 
   modules/               # Commands (userdefined)
 
   services/
     youtube.js           # OAuth  YouTube API client
+    openai.js            # Connect to OpenAI API, !ask command logic
     liveChatTarget.js    # Resolves liveChatId from env settings
-    league.js            # Example service used by commands
+    league.js            # Commands logic for LeagueAPI requests
+    racing/              # Suite of services providing a Racing game in live chats
 
   routes/
     dev.js               # Dev panel handler
-    playground.js        # Playground web UI
+    playground.js        # Playground Web UI
 
   server/
     auth.js              # OAuth endpoints
@@ -221,7 +222,9 @@ src/
     quota.js             # Quota accounting  resets
 
   utils/
-    logger.js            # Logging wrapper
+    logger.js            # Logging wrapper, using Winston package
+    logCommand.js        # Formatting for logging !commands (command + author + response)
+    parse.js             # Parses commands + arguments
     permissions.js       # Owneronly check
 ```
 
@@ -279,7 +282,7 @@ Reload the bot and test it:
 This bot provides:
 
  Seamless PROD operation  
- Powerful DEV mode to conserve quota  
+ Powerful DEV mode to conserve YT API quota  
  Complete offline testing environment  
  Centralized Web UI  
  Pushbutton connect and poll  

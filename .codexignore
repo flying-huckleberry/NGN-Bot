@@ -1,0 +1,16 @@
+# Don't let Codex read or edit env/secrets
+
+# Environment vars
+.env
+.env.*
+
+# SSH keys
+*.pem
+*.key
+
+# secret files
+secrets/
+config/credentials/
+
+# Google/YT API token
+token.json
