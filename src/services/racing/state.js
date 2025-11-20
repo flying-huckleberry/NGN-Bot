@@ -1,52 +1,37 @@
 // src/services/racing/state.js
-const fs = require('fs');
-const path = require('path');
-const { logger } = require('../../utils/logger'); 
+// Scoped racing state backed by per-context JSON files.
 
+const { logger } = require('../../utils/logger');
+const { getScopedState, saveScopedState, resetScopedState } = require('../../state/scopedStore');
 const partsConfig = require('./parts');
-
-const STATE_PATH = path.join(__dirname, '..', 'state', 'racing.json');
 const VENUE_WEIGHTS = require('./venues');
 
-let state = {
-  players: {}, // id -> { id, name, cash, parts }
-  race: null,  // { venue, weather, players: [id], lobbyEndsAt }
-  cooldownUntil: 0,
-  nextRace: null, // { venue, weather }
-};
+const STATE_FILE = 'racing.json';
 
-function loadState() {
+function defaultState() {
+  return {
+    players: {},
+    race: null,
+    cooldownUntil: 0,
+    nextRace: null,
+  };
+}
+
+function getState(scopeKey) {
+  if (!scopeKey) {
+    throw new Error('Racing state requires a scope key.');
+  }
+  return getScopedState(scopeKey, STATE_FILE, defaultState);
+}
+
+function persist(scopeKey) {
   try {
-    if (fs.existsSync(STATE_PATH)) {
-      const raw = fs.readFileSync(STATE_PATH, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        state = {
-          players: parsed.players || {},
-          race: parsed.race || null,
-          cooldownUntil: parsed.cooldownUntil || 0,
-          nextRace: parsed.nextRace || null,
-        };
-      }
-    }
+    saveScopedState(scopeKey, STATE_FILE);
   } catch (err) {
-    logger.error('[racing] Failed to load state:', err);
+    logger.error('[racing] Failed to persist scoped state', err);
   }
 }
 
-function saveState() {
-  try {
-    const dir = path.dirname(STATE_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
-  } catch (err) {
-    logger.error('[racing] Failed to save state:', err);
-  }
-}
-
-loadState();
-
-// Initialize a new player's profile (100 cash, all stock parts)
 function createDefaultParts() {
   const parts = {};
   for (const slot of Object.keys(partsConfig)) {
@@ -55,9 +40,9 @@ function createDefaultParts() {
   return parts;
 }
 
-function ensurePlayer(id, name) {
+function ensurePlayer(scopeKey, id, name) {
   if (!id) throw new Error('ensurePlayer called without id');
-
+  const state = getState(scopeKey);
   let player = state.players[id];
   if (!player) {
     player = {
@@ -67,54 +52,62 @@ function ensurePlayer(id, name) {
       parts: createDefaultParts(),
     };
     state.players[id] = player;
-    saveState();
+    persist(scopeKey);
   } else if (name && player.name !== name) {
     player.name = name;
-    saveState();
+    persist(scopeKey);
   }
   return player;
 }
 
-function getPlayer(id) {
+function getPlayer(scopeKey, id) {
+  const state = getState(scopeKey);
   return state.players[id] || null;
 }
 
-function updatePlayerCash(id, delta) {
-  const p = state.players[id];
-  if (!p) return;
-  p.cash = Math.max(0, (p.cash || 0) + delta);
-  saveState();
+function updatePlayerCash(scopeKey, id, delta) {
+  const state = getState(scopeKey);
+  const player = state.players[id];
+  if (!player) return;
+  player.cash = Math.max(0, (player.cash || 0) + delta);
+  persist(scopeKey);
 }
 
-function setPlayerPart(id, slot, choiceName, cost) {
-  const p = state.players[id];
-  if (!p) return;
-  p.cash = Math.max(0, (p.cash || 0) - cost);
-  p.parts[slot] = choiceName;
-  saveState();
+function setPlayerPart(scopeKey, id, slot, choiceName, cost) {
+  const state = getState(scopeKey);
+  const player = state.players[id];
+  if (!player) return;
+  player.cash = Math.max(0, (player.cash || 0) - cost);
+  player.parts[slot] = choiceName;
+  persist(scopeKey);
 }
 
-function getRace() {
+function getRace(scopeKey) {
+  const state = getState(scopeKey);
   return state.race;
 }
 
-function setRace(race) {
+function setRace(scopeKey, race) {
+  const state = getState(scopeKey);
   state.race = race;
-  saveState();
+  persist(scopeKey);
 }
 
-function clearRace() {
+function clearRace(scopeKey) {
+  const state = getState(scopeKey);
   state.race = null;
-  saveState();
+  persist(scopeKey);
 }
 
-function getCooldownUntil() {
+function getCooldownUntil(scopeKey) {
+  const state = getState(scopeKey);
   return state.cooldownUntil || 0;
 }
 
-function setCooldownUntil(ts) {
+function setCooldownUntil(scopeKey, ts) {
+  const state = getState(scopeKey);
   state.cooldownUntil = ts || 0;
-  saveState();
+  persist(scopeKey);
 }
 
 function randomKey(obj) {
@@ -123,37 +116,30 @@ function randomKey(obj) {
   return keys[Math.floor(Math.random() * keys.length)];
 }
 
-function rollNextRace() {
+function rollNextRace(scopeKey) {
+  const state = getState(scopeKey);
   const venue = randomKey(VENUE_WEIGHTS) || 'Harbor';
-
   const venueTable = VENUE_WEIGHTS[venue] || VENUE_WEIGHTS['Harbor'];
   const weather = randomKey(venueTable) || 'Sunny';
-
   state.nextRace = { venue, weather };
-  saveState();
+  persist(scopeKey);
   return state.nextRace;
 }
 
-
-function getNextRace() {
+function getNextRace(scopeKey) {
+  const state = getState(scopeKey);
   if (!state.nextRace) {
-    return rollNextRace();
+    return rollNextRace(scopeKey);
   }
   return state.nextRace;
 }
 
-function resetAll() {
-  state = {
-    players: {},
-    race: null,
-    cooldownUntil: 0,
-    nextRace: null,
-  };
-  saveState();
+function resetAll(scopeKey) {
+  resetScopedState(scopeKey, STATE_FILE, defaultState);
+  return getState(scopeKey);
 }
 
 module.exports = {
-  getState: () => state,
   ensurePlayer,
   getPlayer,
   updatePlayerCash,

@@ -11,6 +11,7 @@ function loadDevState(g) {
     if (s?.liveChatId) g.liveChatId = s.liveChatId;
     if (s?.nextPageToken) g.nextPageToken = s.nextPageToken;
     if (Object.prototype.hasOwnProperty.call(s, 'primed')) g.primed = s.primed;
+    if (s?.youtubeChannelId) g.youtubeChannelId = s.youtubeChannelId;
   } catch {}
 }
 
@@ -24,6 +25,7 @@ function saveDevState(g) {
           liveChatId: g.liveChatId,
           nextPageToken: g.nextPageToken,
           primed: g.primed,
+          youtubeChannelId: g.youtubeChannelId,
         },
         null,
         2
@@ -40,6 +42,7 @@ function resetDevState(g) {
   g.liveChatId = null;
   g.nextPageToken = null;
   g.primed = false;
+  g.youtubeChannelId = null;
 }
 
 // quick checker for the dev panel label

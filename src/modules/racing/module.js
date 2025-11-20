@@ -13,11 +13,16 @@ const {
   setCooldownUntil,
   getNextRace,
   rollNextRace,
+  resetAll,
 } = require('../../services/racing/state');
 
 const { computeRaceOutcome } = require('../../services/racing/logic');
 const partsConfig = require('../../services/racing/parts');
-const { RACE_JOIN_WINDOW_MS, RACE_COOLDOWN_MS } = require('../../config/env');
+const {
+  RACE_JOIN_WINDOW_MS,
+  RACE_COOLDOWN_MS,
+  DISCORD_RACING_CHANNELS = {},
+} = require('../../config/env');
 
 const JOIN_WINDOW_MS = Number(RACE_JOIN_WINDOW_MS || 60000);       // 60s
 const COOLDOWN_MS = Number(RACE_COOLDOWN_MS || 3600000);          // 1h
@@ -25,6 +30,36 @@ const LAST_PLACE_PAYOUT = 50;
 const PLACE_STEP = 25;
 
 let raceTimer = null;
+
+function getScopeKey(ctx) {
+  return ctx.stateScope || 'global';
+}
+
+function isDiscordChannelAllowed(ctx) {
+  if (ctx.platform !== 'discord') return true;
+  const guildId = ctx.platformMeta?.discord?.guildId;
+  const currentChannel =
+    ctx.platformMeta?.discord?.channelId || ctx.transport?.channelId || null;
+  if (!guildId || !currentChannel) return false;
+
+  const allowedChannel = DISCORD_RACING_CHANNELS[guildId];
+  if (!allowedChannel) {
+    ctx.reply('Racing commands are not enabled on this Discord server.');
+    return false;
+  }
+
+  if (allowedChannel !== currentChannel) {
+    ctx.reply(`Please use <#${allowedChannel}> for racing commands.`);
+    return false;
+  }
+  return true;
+}
+
+async function racingScopeGuard(ctx, next) {
+  // All racing commands share this middleware so transport/platform rules stay centralized.
+  if (!isDiscordChannelAllowed(ctx)) return;
+  await next();
+}
 
 // Adjust these helpers to match your ctx shape if needed.
 function getPlayerId(ctx) {
@@ -171,25 +206,27 @@ function capitalize(str) {
   return String(str || '').charAt(0).toUpperCase() + String(str || '').slice(1);
 }
 
+// Resolves the active race for the current scope and pays out winnings.
 async function resolveRace(ctx) {
-  const race = getRace();
+  const scopeKey = getScopeKey(ctx);
+  const race = getRace(scopeKey);
   if (!race) return;
   const now = Date.now();
   const playerIds = race.players || [];
 
-  clearRace();
+  clearRace(scopeKey);
   raceTimer = null;
 
   if (playerIds.length <= 1) {
-    setCooldownUntil(now + COOLDOWN_MS);
-    rollNextRace();
+    setCooldownUntil(scopeKey, now + COOLDOWN_MS);
+    rollNextRace(scopeKey);
     await ctx.reply('Nobody else showed up. The race is a bye, no cash awarded.');
     return;
   }
 
   // Build players list with parts
   const players = playerIds
-    .map((id) => getPlayer(id))
+    .map((id) => getPlayer(scopeKey, id))
     .filter(Boolean);
 
   // New: compute race outcome with DNFs
@@ -202,18 +239,19 @@ async function resolveRace(ctx) {
   // Optional: single casualties message before results
   if (casualties.length > 0) {
     const casualtySegments = casualties.map((c) => {
+      const mention = ctx.mention(c.id, c.name);
       if (c.reason === 'cops') {
-        return `${c.name} was busted by the cops`;
+        return `${mention} was busted by the cops`;
       }
       if (c.reason === 'crash') {
-        return `${c.name} crashed out`;
+        return `${mention} crashed out`;
       }
       if (c.reason === 'mechanical') {
         return c.failedComponent
-          ? `${c.name} suffered a ${c.failedComponent} failure`
-          : `${c.name} suffered a mechanical failure`;
+          ? `${mention} suffered a ${c.failedComponent} failure`
+          : `${mention} suffered a mechanical failure`;
       }
-      return `${c.name} did not finish`;
+      return `${mention} did not finish`;
     });
 
     const casualtyMsg = `Race casualties: ${casualtySegments.join(' | ')}`;
@@ -253,11 +291,11 @@ async function resolveRace(ctx) {
     }
 
     p.payout = payout;
-    updatePlayerCash(p.id, payout);
+    updatePlayerCash(scopeKey, p.id, payout);
   });
 
-  setCooldownUntil(now + COOLDOWN_MS);
-  rollNextRace(); // we won't mention next venue in this message to save chars
+  setCooldownUntil(scopeKey, now + COOLDOWN_MS);
+  rollNextRace(scopeKey); // we won't mention next venue in this message to save chars
 
   // --- Compact results message (char-budget friendly) ---
 
@@ -272,7 +310,8 @@ async function resolveRace(ctx) {
   // - DNFs: "DNF) Name +50"
   const segments = shown.map((p) => {
     const label = p.dnf ? 'DNF' : `${p.place || '?'}`;
-    return `${label}) ${p.name} +${p.payout}`;
+    const mention = ctx.mention(p.id, p.name);
+    return `${label}) ${mention} +${p.payout}`;
   });
 
   // Append “+N more” if we collapsed the list
@@ -291,12 +330,7 @@ async function resolveRace(ctx) {
 module.exports = {
   name: 'racing',
   description: 'Street racing mini-game.',
-  middleware: [
-    // placeholder; you can add owner/permission checks here if needed
-    async (ctx, next) => {
-      await next();
-    },
-  ],
+  middleware: [racingScopeGuard],
   commands: {
     race: {
       name: 'race',
@@ -307,13 +341,13 @@ module.exports = {
         const now = Date.now();
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
+        const scopeKey = getScopeKey(ctx);
+        const player = ensurePlayer(scopeKey, userId, userName);
 
-        const player = ensurePlayer(userId, userName);
-
         // Check cooldown
         // Check cooldown
         // Check cooldown
-        const cooldownUntil = getCooldownUntil();
+        const cooldownUntil = getCooldownUntil(scopeKey);
         if (cooldownUntil > now) {
           const remaining = cooldownUntil - now;
           const pretty = formatMsAsMinutesSeconds(remaining);
@@ -322,18 +356,18 @@ module.exports = {
 
 
 
-        let race = getRace();
+        let race = getRace(scopeKey);
 
         // No race yet -> start lobby
         if (!race) {
-          const nextRace = getNextRace();
+          const nextRace = getNextRace(scopeKey);
           race = {
             venue: nextRace.venue,
             weather: nextRace.weather,
             players: [player.id],
             lobbyEndsAt: now + JOIN_WINDOW_MS,
           };
-          setRace(race);
+          setRace(scopeKey, race);
 
           // Schedule resolution
           if (raceTimer) clearTimeout(raceTimer);
@@ -344,8 +378,9 @@ module.exports = {
             });
           }, JOIN_WINDOW_MS);
 
+          const mention = ctx.mention(player.id, player.name);
           return ctx.reply(
-            `${player.name} wants to street race! Message !race to line up at the starting line! Venue: ${race.venue}; Weather: ${race.weather}`
+            `${mention} wants to street race! Message !race to line up at the starting line! Venue: ${race.venue}; Weather: ${race.weather}`
           );
         }
 
@@ -360,12 +395,13 @@ module.exports = {
 
         if (!race.players.includes(player.id)) {
           race.players.push(player.id);
-          setRace(race);
+          setRace(scopeKey, race);
 
           const countdown = formatLobbyCountdown(race.lobbyEndsAt, now);
 
+          const mention = ctx.mention(player.id, player.name);
           return ctx.reply(
-            `${player.name} has joined the street race! venue: ${race.venue}; weather: ${race.weather}. ${countdown}`
+            `${mention} has joined the street race! venue: ${race.venue}; weather: ${race.weather}. ${countdown}`
           );
         }
 
@@ -380,7 +416,7 @@ module.exports = {
       usage: 'venue',
       aliases: ['track'],
       async run(ctx) {
-        const nextRace = getNextRace();
+        const nextRace = getNextRace(getScopeKey(ctx));
         await ctx.reply(
           `Next street race, Venue: ${nextRace.venue}; Weather: ${nextRace.weather}`
         );
@@ -395,7 +431,7 @@ module.exports = {
       async run(ctx) {
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(userId, userName);
+        const player = ensurePlayer(getScopeKey(ctx), userId, userName);
 
         const parts = player.parts || {};
         const {
@@ -414,8 +450,9 @@ module.exports = {
           );
         }
 
+        const mention = ctx.mention(player.id, player.name);
         await ctx.reply(
-          `${player.name} has a car with ${tires} tires, ${suspension} suspension, ${brakes} brakes, ${intake} intake, ${exhaust} exhaust, ${ecu} ECU, ${carbonfiber} carbonfiber`
+          `${mention} has a car with ${tires} tires, ${suspension} suspension, ${brakes} brakes, ${intake} intake, ${exhaust} exhaust, ${ecu} ECU, ${carbonfiber} carbonfiber`
         );
       },
     },
@@ -429,7 +466,8 @@ module.exports = {
         const args = ctx.args || [];
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(userId, userName);
+        const scopeKey = getScopeKey(ctx);
+        const player = ensurePlayer(scopeKey, userId, userName);
 
         if (args.length === 0) {
           const partTypes = formatPartTypesList();
@@ -483,10 +521,11 @@ module.exports = {
           );
         }
 
-        setPlayerPart(player.id, partKey, choiceKey, price);
+        setPlayerPart(scopeKey, player.id, partKey, choiceKey, price);
 
+        const mention = ctx.mention(player.id, player.name);
         await ctx.reply(
-          `@${player.name} upgraded their ${partKey} to ${choiceKey} for ${price} cash.`
+          `${mention} upgraded their ${partKey} to ${choiceKey} for ${price} cash.`
         );
       },
     },
@@ -499,9 +538,10 @@ module.exports = {
       async run(ctx) {
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(userId, userName);
+        const player = ensurePlayer(getScopeKey(ctx), userId, userName);
         const amount = player.cash || 0;
-        await ctx.reply(`@${player.name} has ${amount} cash.`);
+        const mention = ctx.mention(player.id, player.name);
+        await ctx.reply(`${mention} has ${amount} cash.`);
       },
     },
 
@@ -524,10 +564,9 @@ module.exports = {
       aliases: ['resetrace'],
       middleware: [ownerOnly()], // ← only the owner can run this command
       async run(ctx) {
-        const { resetAll, rollNextRace } = require('../../services/racing/state');
-
-        resetAll();
-        const next = rollNextRace();
+        const scopeKey = getScopeKey(ctx);
+        resetAll(scopeKey);
+        const next = rollNextRace(scopeKey);
 
         await ctx.reply(
           `!!! RACING DATA HAS BEEN RESET !!! Next street race, Venue: ${next.venue}; Weather: ${next.weather}`

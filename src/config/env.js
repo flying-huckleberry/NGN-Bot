@@ -32,6 +32,27 @@ function parseCsv(value, { defaultValue = [] } = {}) {
     .filter(Boolean);
 }
 
+function parseCsv(value, { defaultValue = [] } = {}) {
+  if (!value) return [...defaultValue];
+  return value
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function parseKeyValueList(value) {
+  if (!value) return {};
+  return value
+    .split(',')
+    .map((pair) => pair.trim())
+    .filter(Boolean)
+    .reduce((acc, pair) => {
+      const [key, val] = pair.split(':').map((s) => s?.trim());
+      if (key && val) acc[key] = val;
+      return acc;
+    }, {});
+}
+
 const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -52,7 +73,8 @@ const {
   DISCORD_BOT_TOKEN = '',
   DISCORD_ALLOWED_GUILD_IDS = '',
   DISCORD_ALLOWED_CHANNEL_IDS = '',
-  DISABLED_MODULES = 'racing',
+  DISCORD_RACING_CHANNELS = '',
+  DISABLED_MODULES = '',
 } = process.env;
 
 // validate critical oauth vars early
@@ -120,7 +142,8 @@ module.exports = {
   DISCORD_BOT_TOKEN,
   DISCORD_ALLOWED_GUILD_IDS: parseCsv(DISCORD_ALLOWED_GUILD_IDS),
   DISCORD_ALLOWED_CHANNEL_IDS: parseCsv(DISCORD_ALLOWED_CHANNEL_IDS),
+  DISCORD_RACING_CHANNELS: parseKeyValueList(DISCORD_RACING_CHANNELS),
 
   // Modules
-  DISABLED_MODULES: parseCsv(DISABLED_MODULES || 'racing'),
+  DISABLED_MODULES: parseCsv(DISABLED_MODULES),
 };

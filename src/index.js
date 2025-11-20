@@ -167,7 +167,12 @@ const g = safeRequire('Global state g', './state/g');
         const publishedAt = msg?.snippet?.publishedAt;
         if (publishedAt && Date.parse(publishedAt) < BOT_START_MS) continue;
 
-        await dispatchFn({ msg, liveChatId, transport: youtubeTransport });
+        await dispatchFn({
+          msg,
+          liveChatId,
+          transport: youtubeTransport,
+          platformMeta: { youtube: { channelId: g.youtubeChannelId } },
+        });
         handled++;
       }
 
@@ -204,6 +209,7 @@ const g = safeRequire('Global state g', './state/g');
             msg,
             liveChatId,
             transport: createYoutubeTransport(liveChatId),
+            platformMeta: { youtube: { channelId: g.youtubeChannelId } },
           });
         }
 
@@ -226,12 +232,13 @@ const g = safeRequire('Global state g', './state/g');
           return;
         }
 
-        const { liveChatId, method } = await resolveTargetLiveChatId();
+        const { liveChatId, method, channelId } = await resolveTargetLiveChatId();
 
         const token = await primeChat(liveChatId);
         g.liveChatId = liveChatId;
         g.nextPageToken = token;
         g.primed = true;
+        g.youtubeChannelId = channelId || null;
 
         const interval = Number(POLLING_FALLBACK_MS || 10000);
         logger.info(

@@ -83,7 +83,7 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
   }
 
   const videosRes = await youtube.videos.list({
-    part: ['liveStreamingDetails'],
+    part: ['liveStreamingDetails', 'snippet'],
     id: [videoId],
   });
   const liveChatId = videosRes.data.items?.[0]?.liveStreamingDetails?.activeLiveChatId;
@@ -92,17 +92,19 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
   }
 
   logger.info(`🎬 Monitoring live: "${title}" (${videoId})`);
-  return liveChatId;
+  return { liveChatId, channelId, videoId };
 }
 
 async function getLiveChatIdForVideo(videoId) {
   const res = await youtube.videos.list({
-    part: ['liveStreamingDetails'],
+    part: ['liveStreamingDetails', 'snippet'],
     id: [videoId],
   });
-  const liveChatId = res.data.items?.[0]?.liveStreamingDetails?.activeLiveChatId;
+  const item = res.data.items?.[0];
+  const liveChatId = item?.liveStreamingDetails?.activeLiveChatId;
   if (!liveChatId) throw new Error('Video found but not currently live or chat disabled.');
-  return liveChatId;
+  const channelId = item?.snippet?.channelId || null;
+  return { liveChatId, channelId, videoId };
 }
 
 /**
@@ -113,14 +115,7 @@ async function getLiveChatIdFromUrl(url) {
   if (!match) throw new Error('Invalid YouTube URL');
   const videoId = match[1];
 
-  const res = await youtube.videos.list({
-    part: ['liveStreamingDetails'],
-    id: [videoId],
-  });
-
-  const liveChatId = res.data.items?.[0]?.liveStreamingDetails?.activeLiveChatId;
-  if (!liveChatId) throw new Error('Video found but not currently live or chat disabled.');
-  return liveChatId;
+  return getLiveChatIdForVideo(videoId);
 }
 
 /**

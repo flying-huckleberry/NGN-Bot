@@ -6,4 +6,5 @@ module.exports = {
   liveChatId: null,
   nextPageToken: null,
   primed: false,
+  youtubeChannelId: null,
 };

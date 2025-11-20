@@ -31,7 +31,7 @@ const modulesDir = path.join(__dirname, '..', 'modules');
 const registry = loadModules(modulesDir);
 
 function buildContextFactoryForPlayground() {
-  return async function buildContext({ msg, liveChatId, args, transport }) {
+  return async function buildContext({ msg, liveChatId, args, transport, platformMeta }) {
     const author = msg && msg.authorDetails ? msg.authorDetails : null;
     const authorName = author?.displayName || 'unknown';
 
@@ -54,6 +54,8 @@ function buildContextFactoryForPlayground() {
         },
       };
 
+    const meta = platformMeta || { playground: true };
+
     const ctx = {
       env,
       services: { registry, league },
@@ -69,6 +71,9 @@ function buildContextFactoryForPlayground() {
       commandName,
       transport: activeTransport,
       platform: activeTransport?.type || 'playground',
+      platformMeta: meta,
+      stateScope: 'playground',
+      scopeInfo: { scopeKey: 'playground', source: { type: 'playground' } },
     };
 
     ctx.reply = async (text, meta = {}) => {
@@ -123,7 +128,12 @@ async function runCommandText(rawText, player) {
     },
   };
 
-  await dispatch({ msg: fakeMsg, liveChatId: 'PLAYGROUND', transport });
+  await dispatch({
+    msg: fakeMsg,
+    liveChatId: 'PLAYGROUND',
+    transport,
+    platformMeta: { playground: true },
+  });
 
   const after = PLAYGROUND_LOG.length;
   if (after > before) {

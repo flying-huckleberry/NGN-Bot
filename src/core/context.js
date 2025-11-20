@@ -2,6 +2,7 @@
 const env = require('../config/env');
 const { sendChatMessage } = require('../services/youtube');
 const g = require('../state/g');
+const { deriveStateScope } = require('../state/stateScope');
 const { logger, getLogger } = require('../utils/logger');
 const botLogger = getLogger('bot');
 
@@ -30,6 +31,8 @@ function buildContextFactory(services) {
         },
       };
 
+    const scopeInfo = deriveStateScope({ transport: activeTransport, platformMeta });
+
     const ctx = {
       env,
       services,
@@ -44,6 +47,21 @@ function buildContextFactory(services) {
       transport: activeTransport,
       platform: activeTransport?.type || 'youtube',
       platformMeta,
+      stateScope: scopeInfo.scopeKey,
+      scopeInfo,
+    };
+
+    ctx.mention = (userId, fallbackName = ctx.authorName || 'user') => {
+      if (ctx.platform === 'discord') {
+        const id =
+          userId ||
+          platformMeta?.discord?.userId ||
+          activeTransport?.userId ||
+          ctx.msg?.authorDetails?.channelId ||
+          null;
+        return id ? `<@${id}>` : fallbackName;
+      }
+      return fallbackName;
     };
 
     // Wrap reply: always log command.response, then send message

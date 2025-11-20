@@ -31,6 +31,7 @@ function renderDev(status = {}) {
     stateFile = null,      // 'present' | 'missing' | null (from route)
     lastPoll = null,       // { received, handled } if provided
     botAuthChannelId = null,
+    youtubeChannelId = null,
     discordStatus = null,
   } = status;
 
@@ -104,6 +105,11 @@ function renderDev(status = {}) {
             ? `<span style="color:#6ee7b7">${liveChatId}</span>`
             : `<span style="color:#9ca3af">None</span>`
         }</div>
+        ${
+          youtubeChannelId
+            ? `<div><strong>YT Channel ID:</strong> <code>${youtubeChannelId}</code></div>`
+            : ''
+        }
         <div><strong>Primed:</strong> ${
           primed
             ? '<span style="color:#6ee7b7">Yes</span>'
@@ -227,6 +233,7 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
 
   const withDiscordStatus = (payload = {}) => ({
     ...payload,
+    youtubeChannelId: g.youtubeChannelId,
     discordStatus:
       typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
   });
@@ -255,13 +262,14 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
   // Connect + prime via resolveTargetLiveChatId
   app.post('/dev/connect', async (req, res) => {
     try {
-      const { liveChatId, method, targetInfo, estimatedUnits } =
+      const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
         await resolveTargetLiveChatId();
 
       const token = await primeChat(liveChatId);
       g.liveChatId = liveChatId;
       g.nextPageToken = token;
       g.primed = true;
+      g.youtubeChannelId = channelId || g.youtubeChannelId;
       saveDevState(g);
 
       const quota = addQuotaUsage(estimatedUnits);

@@ -31,23 +31,23 @@ const PRIME_ESTIMATE_UNITS = 5;
  * Throws with a helpful message if none is set or if resolution fails.
  */
 async function resolveTargetLiveChatId() {
-  let liveChatId;
+  let result;
   let method;
   let targetInfo = {};
   let discoverCost = 0;
 
   if (TARGET_LIVESTREAM_URL) {
-    liveChatId = await getLiveChatIdFromUrl(TARGET_LIVESTREAM_URL);
+    result = await getLiveChatIdFromUrl(TARGET_LIVESTREAM_URL);
     method = 'Livestream URL';
-    targetInfo = { url: TARGET_LIVESTREAM_URL };
+    targetInfo = { url: TARGET_LIVESTREAM_URL, videoId: result?.videoId };
     discoverCost = 1;
   } else if (process.env.TARGET_VIDEO_ID) {
-    liveChatId = await getLiveChatIdForVideo(process.env.TARGET_VIDEO_ID);
+    result = await getLiveChatIdForVideo(process.env.TARGET_VIDEO_ID);
     method = 'Video ID';
     targetInfo = { videoId: process.env.TARGET_VIDEO_ID };
     discoverCost = 1;
   } else if (TARGET_CHANNEL_ID) {
-    liveChatId = await getLiveChatIdForChannel(
+    result = await getLiveChatIdForChannel(
       TARGET_CHANNEL_ID,
       (TARGET_TITLE_MATCH || '').trim()
     );
@@ -63,13 +63,19 @@ async function resolveTargetLiveChatId() {
     );
   }
 
-  if (!liveChatId) {
+  if (!result?.liveChatId) {
     throw new Error('Unable to resolve liveChatId from the configured target.');
   }
 
   const estimatedUnits = discoverCost + PRIME_ESTIMATE_UNITS;
 
-  return { liveChatId, method, targetInfo, estimatedUnits };
+  return {
+    liveChatId: result.liveChatId,
+    channelId: result.channelId || TARGET_CHANNEL_ID || null,
+    method,
+    targetInfo,
+    estimatedUnits,
+  };
 }
 
 module.exports = { resolveTargetLiveChatId };

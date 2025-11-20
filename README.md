@@ -12,6 +12,7 @@ A modular Node.js application that connects to YouTube Live Chat, processes comm
  **YouTube OAuth2 authentication** – Logs in the bot account securely.
  **Unified Web UI** – Dev panel and playground accessible from the browser.
  **Discord transport** – Optional discord.js listener runs beside YouTube chat.
+ **Scoped persistence** – Context-aware storage keeps racing/stateful modules isolated per playground, YouTube channel, or Discord guild.
  **Modular command system** – Commands stored in `src/modules/`.
  **Quota tracking** – Estimates API cost and resets daily at midnight PST.
  **State persistence** – DEV mode saves state to avoid repeated expensive API lookups.
@@ -73,8 +74,11 @@ DISCORD_BOT_TOKEN=your-discord-bot-token
 DISCORD_ALLOWED_GUILD_IDS=
 DISCORD_ALLOWED_CHANNEL_IDS=
 
-# Disable modules (CSV, defaults to racing for multi-transport rollout)
-DISABLED_MODULES=racing
+# Disable modules (CSV)
+DISABLED_MODULES=
+
+# Restrict racing commands per guild (comma separated guildId:channelId pairs)
+DISCORD_RACING_CHANNELS=
 ```
 
 Target selection priority:
@@ -115,6 +119,17 @@ No API calls are performed in this mode.
 
 ### Discord transport
 If `DISCORD_BOT_TOKEN` is present, the bot also starts a discord.js client in the same Node.js process. Discord chat messages that begin with the configured command prefix are routed through the same command registry and replies are posted only to the originating Discord channel. Optional `DISCORD_ALLOWED_GUILD_IDS` / `DISCORD_ALLOWED_CHANNEL_IDS` lists can scope which servers or channels are handled. The Dev Panel shows a simple status block so you can confirm whether the Discord client is connected; there is no separate playground/dev flow for Discord because the API does not impose comparable quota constraints.
+
+Racing commands use a stricter policy: define exactly one racing channel per guild via `DISCORD_RACING_CHANNELS=guildId:channelId,...`. Commands issued elsewhere in Discord will be rejected with a friendly reminder to use the configured channel so state, chatter, and payouts stay centralized.
+
+### Scoped state
+Stateful features such as the racing mini-game now persist per transport context:
+
+- `playground` – standalone sandbox state for offline testing.
+- `youtube:<channelId>` – one file per creator channel so racers keep their builds across livestreams without colliding with other channels.
+- `discord:<guildId>` – one file per Discord server, with commands limited to the configured racing channel.
+
+The shared scoped store (`src/state/scopedStore.js`) can be reused by future modules; pass `ctx.stateScope` plus your module’s filename and the helper handles JSON load/save under `state/scoped/<scope>/`.
 
 
 ## Web UI Overview

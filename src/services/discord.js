@@ -140,7 +140,14 @@ async function startDiscordTransport({ dispatch }) {
         msg,
         liveChatId: message.channelId,
         transport: createDiscordTransport(message),
-        platformMeta: { discordMessage: message },
+        platformMeta: {
+          discord: {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            userId: message.author?.id,
+          },
+          rawDiscord: message,
+        },
       });
     } catch (err) {
       logger.error('Discord dispatch error:', err);
