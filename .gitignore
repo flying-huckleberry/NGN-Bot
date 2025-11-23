@@ -14,5 +14,6 @@ token.json
 
 # State Files
 dev_state.json
+quota_state.json
 /src/services/state
 state/scoped/
