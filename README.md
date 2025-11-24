@@ -8,6 +8,7 @@ A modular Node.js bot that connects to both YouTube Live Chat and Discord. It pr
 - DEV: manual connect/poll via web UI to conserve YouTube quota.
 - Playground: offline fake chat for developing commands without API calls.
 - Discord transport: discord.js client shares the same command registry and scoped racing state.
+- Crypto paper-trading mini-game with CoinGecko prices and per-scope portfolios.
 - Unified web UI: Dev panel and playground in the browser.
 - OAuth2 for YouTube; Discord token-based auth.
 - Scoped persistence: per-playground, per-YouTube channel, and per-Discord guild state.
@@ -66,6 +67,11 @@ DISCORD_RACING_CHANNELS=
 
 # Disable modules (CSV)
 DISABLED_MODULES=
+
+# Crypto game (CoinGecko-backed paper trading)
+CRYPTO_ALLOWED_COINS=BTC,ETH,SOL,DOGE,LTC
+CRYPTO_STARTING_CASH=1000
+COINGECKO_TTL_MS=60000  # set 0 for no cache
 ```
 
 Target selection priority: `TARGET_LIVESTREAM_URL` > `TARGET_VIDEO_ID` > `TARGET_CHANNEL_ID` (+optional `TARGET_TITLE_MATCH`).
@@ -86,6 +92,9 @@ Open `http://localhost:4000`. No external API calls are made; useful for develop
 
 ### Discord transport
 If `DISCORD_BOT_TOKEN` is set, the Discord client starts alongside YouTube. Messages starting with the command prefix use the same router and replies stay in the originating channel. Optional allowlists (`DISCORD_ALLOWED_GUILD_IDS`, `DISCORD_ALLOWED_CHANNEL_IDS`) scope handling. The racing game enforces one channel per guild via `DISCORD_RACING_CHANNELS`; commands elsewhere are rejected with a reminder.
+
+### Crypto paper trading
+Enabled by default. Users start with `CRYPTO_STARTING_CASH` USD and can trade allowlisted coins (`CRYPTO_ALLOWED_COINS` tickers CSV). Prices come from CoinGecko `/simple/price`, cached for `COINGECKO_TTL_MS` milliseconds (set 0 for no cache). Commands: `!buy <symbol> <usd>`, `!sell <symbol> <usd>`, `!cash`, `!wallet`, `!coin <symbol>`, `!leaders`. Replies tag the user and respect the chat character limit.
 
 ### Scoped state
 Stateful features persist per context:
@@ -149,6 +158,7 @@ src/
     liveChatTarget.js    # Resolves liveChatId from env
     league.js            # League API commands
     racing/              # Racing game logic, state, parts, venues
+    crypto/              # CoinGecko-backed paper trading state/prices
   routes/
     dev.js               # Dev panel handler
     playground.js        # Playground UI

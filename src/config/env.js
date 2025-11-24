@@ -75,6 +75,9 @@ const {
   DISCORD_ALLOWED_CHANNEL_IDS = '',
   DISCORD_RACING_CHANNELS = '',
   DISABLED_MODULES = '',
+  CRYPTO_ALLOWED_COINS = 'BTC,ETH,SOL,DOGE,LTC',
+  CRYPTO_STARTING_CASH = '1000',
+  COINGECKO_TTL_MS = '60000',
 } = process.env;
 
 // validate critical oauth vars early
@@ -146,4 +149,9 @@ module.exports = {
 
   // Modules
   DISABLED_MODULES: parseCsv(DISABLED_MODULES),
+
+  // Crypto game
+  CRYPTO_ALLOWED_COINS: parseCsv(CRYPTO_ALLOWED_COINS).map((c) => c.toUpperCase()),
+  CRYPTO_STARTING_CASH: Number(CRYPTO_STARTING_CASH) || 1000,
+  COINGECKO_TTL_MS: Number(COINGECKO_TTL_MS) || 0,
 };
