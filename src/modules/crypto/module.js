@@ -314,7 +314,7 @@ module.exports = {
 
         return ctx.reply(
           clamp(
-            `${mention} holds ${formatHoldings(qty)} ${symbol} worth $${formatMoney(
+            `${mention} holds ${formatHoldings(qty)} ${symbol} wealth $${formatMoney(
               value
             )} @ $${formatMoney(price)}`
           )
