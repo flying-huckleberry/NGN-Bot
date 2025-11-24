@@ -23,6 +23,12 @@ const {
   RACE_COOLDOWN_MS,
   DISCORD_RACING_CHANNELS = {},
 } = require('../../config/env');
+const { transferCash } = require('../../services/racing/transfer');
+const {
+  getForcedWinnerId,
+  setForcedWinnerId,
+  applyForcedWinner,
+} = require('../../services/racing/forcedWinner');
 
 const JOIN_WINDOW_MS = Number(RACE_JOIN_WINDOW_MS || 60000);       // 60s
 const COOLDOWN_MS = Number(RACE_COOLDOWN_MS || 3600000);          // 1h
@@ -206,6 +212,39 @@ function capitalize(str) {
   return String(str || '').charAt(0).toUpperCase() + String(str || '').slice(1);
 }
 
+function isOwnerUser(ctx, userId) {
+  if (!userId) return false;
+  if (ctx.platform === 'discord') {
+    const ownerId =
+      ctx.platformMeta?.rawDiscord?.guild?.ownerId ||
+      ctx.platformMeta?.discord?.guildOwnerId ||
+      null;
+    return ownerId ? ownerId === userId : false;
+  }
+
+  if (ctx.platform === 'youtube') {
+    // Treat the connected channel as the owner
+    const channelId = ctx.platformMeta?.youtube?.channelId;
+    return channelId ? channelId === userId : false;
+  }
+
+  return false;
+}
+
+function parseTargetId(raw) {
+  if (!raw) return null;
+  // Strip Discord mention wrappers <@...> or <@!...>
+  const mentionMatch = String(raw).match(/^<@!?(\d+)>$/);
+  if (mentionMatch) return mentionMatch[1];
+
+  // Plain @prefix
+  const atMatch = String(raw).match(/^@?(\d+)$/);
+  if (atMatch) return atMatch[1];
+
+  // Fallback: return raw as-is
+  return String(raw);
+}
+
 // Resolves the active race for the current scope and pays out winnings.
 async function resolveRace(ctx) {
   const scopeKey = getScopeKey(ctx);
@@ -230,11 +269,15 @@ async function resolveRace(ctx) {
     .filter(Boolean);
 
   // New: compute race outcome with DNFs
-  const { ranked, casualties } = computeRaceOutcome(
+  let { ranked, casualties } = computeRaceOutcome(
     players,
     race.venue,
     race.weather
   );
+
+  // If an owner invoked !ihaveagun, force them to win.
+  const forcedWinnerId = getForcedWinnerId(scopeKey);
+  ({ ranked, casualties } = applyForcedWinner(ranked, casualties, forcedWinnerId));
 
   // Optional: single casualties message before results
   if (casualties.length > 0) {
@@ -366,6 +409,7 @@ module.exports = {
             weather: nextRace.weather,
             players: [player.id],
             lobbyEndsAt: now + JOIN_WINDOW_MS,
+            forcedWinnerId: null,
           };
           setRace(scopeKey, race);
 
@@ -542,6 +586,83 @@ module.exports = {
         const amount = player.cash || 0;
         const mention = ctx.mention(player.id, player.name);
         await ctx.reply(`${mention} has ${amount} cash.`);
+      },
+    },
+
+    give: {
+      name: 'give',
+      description: 'Give cash to another racer.',
+      usage: 'give <@player> <amount>',
+      aliases: ['donate'],
+      async run(ctx) {
+        const args = ctx.args || [];
+        if (args.length < 2) {
+          return ctx.reply('Usage: !give <@player> <amount>');
+        }
+
+        const targetToken = args[0];
+        const targetId = parseTargetId(targetToken);
+        const amountRaw = args[1];
+
+        const scopeKey = getScopeKey(ctx);
+        const senderId = getPlayerId(ctx);
+        const senderName = getPlayerName(ctx);
+
+        const result = transferCash(scopeKey, senderId, senderName, targetId, amountRaw);
+
+        if (result.status === 'invalid_amount' || result.status === 'self') {
+          return; // silent no-op
+        }
+
+        if (result.status === 'missing_recipient') {
+          return ctx.reply(`Player ${targetToken} was not found.`);
+        }
+
+        if (result.status === 'insufficient') {
+          const senderMention = ctx.mention(senderId, senderName);
+          return ctx.reply(
+            `${senderMention}, you do not have ${result.amount} to give. You only have ${result.senderCash}!`
+          );
+        }
+
+        if (result.status === 'ok') {
+          const senderMention = ctx.mention(result.sender.id, result.sender.name);
+          const recipientMention = ctx.mention(result.recipient.id, result.recipient.name);
+          return ctx.reply(`${senderMention} gave ${result.amount} cash to ${recipientMention}`);
+        }
+      },
+    },
+
+    ihaveagun: {
+      name: 'ihaveagun',
+      description: 'OWNER-ONLY: Guarantees the owner wins the current race.',
+      usage: 'ihaveagun',
+      aliases: [],
+      async run(ctx) {
+        const userId = getPlayerId(ctx);
+        const userName = getPlayerName(ctx);
+        const scopeKey = getScopeKey(ctx);
+        const now = Date.now();
+
+        if (!isOwnerUser(ctx, userId)) {
+          return; // silent deny
+        }
+
+        let race = getRace(scopeKey);
+        if (!race || !race.lobbyEndsAt || race.lobbyEndsAt <= now) {
+          return ctx.reply('No active race lobby to influence.');
+        }
+
+        if (!race.players.includes(userId)) {
+          return ctx.reply('Join the race first with !race, then use !ihaveagun.');
+        }
+
+        ensurePlayer(scopeKey, userId, userName);
+
+        setForcedWinnerId(scopeKey, userId);
+
+        const mention = ctx.mention(userId, userName);
+        return ctx.reply(`${mention} has a gun! Everyone scatters!`);
       },
     },
 

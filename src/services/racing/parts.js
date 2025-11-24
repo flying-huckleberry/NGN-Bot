@@ -21,7 +21,7 @@ module.exports = {
       "fog": 0,
       "rocky": 0
     },
-    "babybottom": {
+    "slicks": {
       "price": 200,
       "grip": 3,
       "handling": 2,
