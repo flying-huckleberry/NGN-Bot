@@ -74,6 +74,43 @@ const CRITICAL_SLOTS = ['tires', 'suspension', 'brakes', 'intake', 'exhaust', 'e
 
 // DNFs for: busted by cops, crash, or mechanical failure.
 function rollCasualty(player, stats, weights, venue) {
+  // Venue-specific hazards that override standard calculation
+  if (venue === 'Runway') {
+    if (Math.random() < 0.10) {
+      return { dnf: true, dnfReason: 'plane', failedComponent: null };
+    }
+  }
+
+  if (venue === 'Mountain Pass') {
+    if (Math.random() < 0.05) {
+      return { dnf: true, dnfReason: 'brakes', failedComponent: 'brakes' };
+    }
+  }
+
+  if (venue === 'Canyon') {
+    if (Math.random() < 0.05) {
+      return { dnf: true, dnfReason: 'rockslide', failedComponent: null };
+    }
+  }
+
+  if (venue === 'City Grid') {
+    if (Math.random() < 0.08) {
+      return { dnf: true, dnfReason: 'pedestrian', failedComponent: null };
+    }
+  }
+
+  if (venue === 'Desert Flats') {
+    if (Math.random() < 0.05) {
+      return { dnf: true, dnfReason: 'radiator', failedComponent: 'radiator' };
+    }
+  }
+
+  if (venue === 'Forest Trail') {
+    if (Math.random() < 0.08) {
+      return { dnf: true, dnfReason: 'deer', failedComponent: null };
+    }
+  }
+
   // Special hazard: bridge has a fixed chance to end in the river.
   if (venue === 'Bridge') {
     if (Math.random() < 0.10) {
@@ -127,6 +164,9 @@ function rollCasualty(player, stats, weights, venue) {
   switch (venue) {
     case 'I-69':
       copsFraction = 0.20;
+      break;
+    case 'City Grid':
+      copsFraction = 0.15 + 0.10; // base 15% + 10% bonus risk
       break;
     case 'Harbor':
     case 'Hillside':

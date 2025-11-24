@@ -292,6 +292,24 @@ async function resolveRace(ctx) {
       if (c.reason === 'river') {
         return `${mention} plunged into the river`;
       }
+      if (c.reason === 'plane') {
+        return `${mention} collided with a landing plane`;
+      }
+      if (c.reason === 'brakes') {
+        return `${mention} melted their brakes`;
+      }
+      if (c.reason === 'rockslide') {
+        return `${mention} was buried in a rock slide`;
+      }
+      if (c.reason === 'pedestrian') {
+        return `${mention} hit a pedestrian`;
+      }
+      if (c.reason === 'radiator') {
+        return `${mention} blew their radiator`;
+      }
+      if (c.reason === 'deer') {
+        return `${mention} hit a deer`;
+      }
       if (c.reason === 'mechanical') {
         return c.failedComponent
           ? `${mention} suffered a ${c.failedComponent} failure`
