@@ -17,6 +17,7 @@ dev_state.json
 quota_state.json
 /src/services/state
 state/scoped/
+quota_state.json
 
 # Codex
 CODING_AGENTS.md

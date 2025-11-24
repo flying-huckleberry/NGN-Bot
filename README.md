@@ -1,34 +1,25 @@
-# YouTube Live Chat Bot
+# YouTube & Discord Live Chat Bot
 
-A modular Node.js application that connects to YouTube Live Chat, processes commands, and provides a full development environment through a unified Web UI. The bot supports multiple modes—PROD, DEV, and PLAYGROUND—allowing efficient development while controlling API usage.
-
-
+A modular Node.js bot that connects to both YouTube Live Chat and Discord. It processes commands through a shared router, serves a unified Dev/Playground web UI, and supports PROD/DEV/Playground modes to balance real usage with safe offline testing.
 
 ## Features
 
- **PROD mode** – Automatically connects to a livestream and continuously polls chat.
- **DEV mode** – Manual connect and poll controls via Web UI to conserve YouTube quota.
- **Playground mode** – Fully offline simulation of YouTube chat for testing commands.
- **YouTube OAuth2 authentication** – Logs in the bot account securely.
- **Unified Web UI** – Dev panel and playground accessible from the browser.
- **Discord transport** – Optional discord.js listener runs beside YouTube chat.
- **Scoped persistence** – Context-aware storage keeps racing/stateful modules isolated per playground, YouTube channel, or Discord guild.
- **Modular command system** – Commands stored in `src/modules/`.
- **Quota tracking** – Estimates API cost and resets daily at midnight PST.
- **State persistence** – DEV mode saves state to avoid repeated expensive API lookups.
- **Robust startup safety checks** – Ensures modules load correctly and logs errors.
-
-
+- PROD: auto-connects to the target livestream and continuously polls chat.
+- DEV: manual connect/poll via web UI to conserve YouTube quota.
+- Playground: offline fake chat for developing commands without API calls.
+- Discord transport: discord.js client shares the same command registry and scoped racing state.
+- Unified web UI: Dev panel and playground in the browser.
+- OAuth2 for YouTube; Discord token-based auth.
+- Scoped persistence: per-playground, per-YouTube channel, and per-Discord guild state.
+- Modular commands in `src/modules/`; racing mini-game with upgrades and payouts.
+- Quota tracking and nightly reset; startup safety checks and logging.
 
 ## Prerequisites
 
- Node.js 18
- A Google Cloud Project with **YouTube Data API v3** enabled
- OAuth Client ID  Secret
- Redirect URI:  
-  `http://localhost:3000/oauth2callback`
-
-
+- Node.js 18
+- Google Cloud project with YouTube Data API v3 enabled (client ID/secret)
+- Redirect URI: `http://localhost:3000/oauth2callback`
+- (Optional) Discord bot token
 
 ## Installation
 
@@ -37,19 +28,16 @@ npm install
 cp .env.example .env
 ```
 
-Open `.env` and fill in:
+Fill `.env` with:
 
- Google OAuth credentials  
- Bot mode (dev/prod)  
- Desired livestream target  
- Command prefix  
- Quota settings  
+- Google OAuth credentials
+- Bot mode (dev/prod)
+- Livestream targeting (URL/video ID/channel ID/title match)
+- Command prefix and quota settings
+- Discord bot token and allowed guild/channel IDs (optional)
+- Racing Discord channel mapping (optional)
 
-
-
-## Environment Configuration
-
-Example `.env`:
+### Environment example
 
 ```env
 MODE=dev
@@ -73,126 +61,64 @@ POLL_ESTIMATE_UNITS=5
 DISCORD_BOT_TOKEN=your-discord-bot-token
 DISCORD_ALLOWED_GUILD_IDS=
 DISCORD_ALLOWED_CHANNEL_IDS=
+# Restrict racing commands per guild (comma separated guildId:channelId pairs)
+DISCORD_RACING_CHANNELS=
 
 # Disable modules (CSV)
 DISABLED_MODULES=
-
-# Restrict racing commands per guild (comma separated guildId:channelId pairs)
-DISCORD_RACING_CHANNELS=
 ```
 
-Target selection priority:
+Target selection priority: `TARGET_LIVESTREAM_URL` > `TARGET_VIDEO_ID` > `TARGET_CHANNEL_ID` (+optional `TARGET_TITLE_MATCH`).
 
-1. `TARGET_LIVESTREAM_URL`
-2. `TARGET_VIDEO_ID`
-3. `TARGET_CHANNEL_ID`  optional `TARGET_TITLE_MATCH`
+## Running the bot
 
-
-
-## Running the Bot
-
-### PROD or DEV mode
+### PROD or DEV
 ```bash
 npm start
 ```
-
-Visit:
-
-```
-http://localhost:3000
-```
-
-If tokens are missing, you'll be redirected to `/auth` to sign in with the **bot’s YouTube account**.
+Open `http://localhost:3000`. If YouTube tokens are missing, you’ll be redirected to `/auth` to sign in with the bot’s YouTube account.
 
 ### Playground (offline)
 ```bash
 npm run dev
 ```
-
-Visit:
-
-```
-http://localhost:4000
-```
-
-No API calls are performed in this mode.
+Open `http://localhost:4000`. No external API calls are made; useful for developing commands safely.
 
 ### Discord transport
-If `DISCORD_BOT_TOKEN` is present, the bot also starts a discord.js client in the same Node.js process. Discord chat messages that begin with the configured command prefix are routed through the same command registry and replies are posted only to the originating Discord channel. Optional `DISCORD_ALLOWED_GUILD_IDS` / `DISCORD_ALLOWED_CHANNEL_IDS` lists can scope which servers or channels are handled. The Dev Panel shows a simple status block so you can confirm whether the Discord client is connected; there is no separate playground/dev flow for Discord because the API does not impose comparable quota constraints.
-
-Racing commands use a stricter policy: define exactly one racing channel per guild via `DISCORD_RACING_CHANNELS=guildId:channelId,...`. Commands issued elsewhere in Discord will be rejected with a friendly reminder to use the configured channel so state, chatter, and payouts stay centralized.
+If `DISCORD_BOT_TOKEN` is set, the Discord client starts alongside YouTube. Messages starting with the command prefix use the same router and replies stay in the originating channel. Optional allowlists (`DISCORD_ALLOWED_GUILD_IDS`, `DISCORD_ALLOWED_CHANNEL_IDS`) scope handling. The racing game enforces one channel per guild via `DISCORD_RACING_CHANNELS`; commands elsewhere are rejected with a reminder.
 
 ### Scoped state
-Stateful features such as the racing mini-game now persist per transport context:
+Stateful features persist per context:
+- `playground` — offline sandbox state.
+- `youtube:<channelId>` — per creator channel.
+- `discord:<guildId>` — per server, with racing limited to the configured channel.
 
-- `playground` – standalone sandbox state for offline testing.
-- `youtube:<channelId>` – one file per creator channel so racers keep their builds across livestreams without colliding with other channels.
-- `discord:<guildId>` – one file per Discord server, with commands limited to the configured racing channel.
+Use `src/state/scopedStore.js` for new modules; pass `ctx.stateScope` and your filename to load/save under `state/scoped/<scope>/`.
 
-The shared scoped store (`src/state/scopedStore.js`) can be reused by future modules; pass `ctx.stateScope` plus your module’s filename and the helper handles JSON load/save under `state/scoped/<scope>/`.
+## Web UI
 
+- `/` (Dev Panel): connect/poll controls, quota usage, target info, token status, dev state reset, raw JSON debug panel.
+- `/sandbox`: fake chat playground to send commands and view replies without API calls.
+- `/auth`: starts YouTube OAuth2.
+- `/oauth2callback`: stores OAuth tokens.
 
-## Web UI Overview
+## Quota tracking
 
-The Web UI uses a shared sidebar layout:
+YouTube Data API v3 daily limits are estimated in `state/quota.js`:
 
-### `/` — Dev Panel
-Main interface for development:
+| Action                | Approx units |
+| --------------------- | ------------ |
+| Resolve livestream URL| ~1           |
+| Resolve video ID      | ~1           |
+| Resolve channel       | ~101         |
+| Prime chat            | ~5           |
+| Poll once             | ~5           |
 
- Connect to livestream  
- Poll once (reads one page of chat)  
- View YouTube quota usage  
- Inspect liveChatId, method, tokens, prime status  
- Reset dev state  
- View raw JSON debug panel  
-
-### `/sandbox`
-Offline fakechat environment:
-
- Select a fake player identity  
- Send commands as if in YouTube chat  
- View replies and global log  
- Useful for command development without affecting quota  
-
-### `/auth`
-Starts Google OAuth2 flow.  
-After authorization, the bot’s tokens are saved locally.
-
-### `/oauth2callback`
-Receives and stores the OAuth tokens.
-
-
-
-## Quota Tracking
-
-YouTube Data API v3 has strict daily limits.  
-This bot maintains an internal estimate in `state/quota.js`.
-
-Estimated costs used:
-
-| Action | Approx Units |
-|||
-| Resolve livestream URL | ~1 |
-| Resolve video ID | ~1 |
-| Resolve channel | ~101 |
-| Prime chat | ~5 |
-| Poll once | ~5 |
-
-Reset happens automatically every midnight Pacific Time.
-
-Displayed visually in the Dev Panel progress bar.
-
-
+Resets automatically at midnight Pacific and is shown in the Dev Panel.
 
 ## Commands
 
-Commands live under:
-
-```
-src/modules/
-```
-
-Each module can export multiple commands:
+Commands live in `src/modules/`. Example:
 
 ```js
 module.exports = {
@@ -202,117 +128,82 @@ module.exports = {
       description: 'Say hello',
       run: async (ctx) => {
         ctx.reply('Hello!');
-      }
-    }
-  }
+      },
+    },
+  },
 };
 ```
 
-Commands are triggered in chat using the prefix defined in `.env` (default: `!`):
+Trigger with the prefix (default `!`): `!hello`. The router handles parsing, owner checks, execution, and replies across YouTube and Discord.
 
-```
-!hello
-```
-
-The router automatically handles parsing, owner checks, execution, and reply delivery across all modes.
-
-
-
-## Project Structure
+## Project structure
 
 ```
 src/
-  index.js               # Main bot runtime  web UI server
-
-  modules/               # Commands (userdefined)
-
+  index.js               # Main runtime + web UI server
+  modules/               # Command modules
   services/
-    youtube.js           # OAuth  YouTube API client
-    openai.js            # Connect to OpenAI API, !ask command logic
-    liveChatTarget.js    # Resolves liveChatId from env settings
-    league.js            # Commands logic for LeagueAPI requests
-    racing/              # Suite of services providing a Racing game in live chats
-
+    youtube.js           # OAuth + YouTube API client
+    discord.js           # Discord transport bootstrap
+    openai.js            # !ask logic
+    liveChatTarget.js    # Resolves liveChatId from env
+    league.js            # League API commands
+    racing/              # Racing game logic, state, parts, venues
   routes/
     dev.js               # Dev panel handler
-    playground.js        # Playground Web UI
-
+    playground.js        # Playground UI
   server/
     auth.js              # OAuth endpoints
-    layout.js            # Shared HTML layout  sidebar
-
+    layout.js            # Shared HTML layout
   state/
-    g.js                 # Inmemory global state
+    g.js                 # In-memory global state
     devState.js          # Saved state for DEV mode
-    quota.js             # Quota accounting  resets
-
+    quota.js             # Quota accounting + reset
+    scopedStore.js       # Scoped JSON storage helper
   utils/
-    logger.js            # Logging wrapper, using Winston package
-    logCommand.js        # Formatting for logging !commands (command + author + response)
-    parse.js             # Parses commands + arguments
-    permissions.js       # Owneronly check
+    logger.js
+    logCommand.js
+    parse.js
+    permissions.js
 ```
 
-
-
-## Development Workflow
+## Development workflow
 
 1. Set `MODE=dev` in `.env`.
-2. Start the bot: `npm start`.
-3. Open `http://localhost:3000`.
-4. Connect manually (consumes minimal quota).
-5. Poll once to process chat.
-6. Edit or add commands in `src/modules/`.
-7. Test either:
-    **In real chat (uses quota)**  
-    **In `/playground` (no quota)**  
+2. `npm start` (web UI at `http://localhost:3000`).
+3. Connect manually, then poll once to process chat.
+4. Edit or add commands in `src/modules/`.
+5. Test in real chat (uses quota) or `/sandbox` (no quota).
 
-When deploying:
+Deploy:
 
 1. Set `MODE=prod`.
-2. Ensure targeting values in `.env` are correct.
-3. Start the bot normally and let it run unattended.
+2. Confirm targeting values in `.env`.
+3. `npm start` and let it run.
 
+## Adding new commands
 
-
-## Adding New Commands
-
-Example module `dice.js`:
+Create a module under `src/modules/`, export commands, then reload/test:
 
 ```js
 module.exports = {
   name: 'dice',
   commands: {
     roll: {
-      description: 'Roll a sixsided die',
+      description: 'Roll a six-sided die',
       run: async (ctx) => {
-        const n = Math.floor(Math.random() * 6)  1;
+        const n = Math.floor(Math.random() * 6) + 1;
         ctx.reply(`You rolled a ${n}`);
-      }
-    }
-  }
+      },
+    },
+  },
 };
 ```
 
-Reload the bot and test it:
-
-```
-!roll
-```
-
-
-
 ## Summary
 
-This bot provides:
-
- Seamless PROD operation  
- Powerful DEV mode to conserve YT API quota  
- Complete offline testing environment  
- Centralized Web UI  
- Pushbutton connect and poll  
- Modular commands easy to extend  
- Automatic quota management  
- Safe startup and error logging  
-
-Developers can build new commands quickly and test them immediately—without burning API quota or dealing with complex YouTube integrations.
+This bot runs on YouTube and Discord with:
+- Seamless PROD operation and a quota-friendly DEV mode.
+- Offline Playground for safe development.
+- Shared web UI, modular commands, scoped persistence, and racing mini-game.
+- Automatic quota tracking and robust startup checks.
