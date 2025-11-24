@@ -17,3 +17,7 @@ dev_state.json
 quota_state.json
 /src/services/state
 state/scoped/
+
+# Codex
+CODING_AGENTS.md
+.codexignore
