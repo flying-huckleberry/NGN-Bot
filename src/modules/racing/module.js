@@ -289,6 +289,9 @@ async function resolveRace(ctx) {
       if (c.reason === 'crash') {
         return `${mention} crashed out`;
       }
+      if (c.reason === 'river') {
+        return `${mention} plunged into the river`;
+      }
       if (c.reason === 'mechanical') {
         return c.failedComponent
           ? `${mention} suffered a ${c.failedComponent} failure`

@@ -74,6 +74,13 @@ const CRITICAL_SLOTS = ['tires', 'suspension', 'brakes', 'intake', 'exhaust', 'e
 
 // DNFs for: busted by cops, crash, or mechanical failure.
 function rollCasualty(player, stats, weights, venue) {
+  // Special hazard: bridge has a fixed chance to end in the river.
+  if (venue === 'Bridge') {
+    if (Math.random() < 0.10) {
+      return { dnf: true, dnfReason: 'river', failedComponent: null };
+    }
+  }
+
   // --- 1) Compute total DNF chance (low, and build-dependent) ---
 
   // Baseline small risk for everyone
