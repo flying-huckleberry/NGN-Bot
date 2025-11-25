@@ -1,6 +1,13 @@
 // src/services/racing/transfer.js
 // Helper for player-to-player cash transfers in racing.
-const { ensurePlayer, getPlayer, updatePlayerCash } = require('./state');
+const { ensurePlayer, getPlayer, updatePlayerCash, listPlayers } = require('./state');
+
+function normalizeTag(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^@+/, '')
+    .toLowerCase();
+}
 
 /**
  * Attempt to transfer cash from one player to another.
@@ -24,7 +31,18 @@ function transferCash(scopeKey, senderId, senderName, recipientId, amount) {
     return { status: 'self' };
   }
 
-  const recipient = getPlayer(scopeKey, recipientId);
+  let recipient = getPlayer(scopeKey, recipientId);
+
+  // Fallback: match by display name if ID lookup fails (helps YouTube where tags lack channelId).
+  if (!recipient) {
+    const targetName = normalizeTag(recipientId);
+    if (targetName) {
+      recipient = listPlayers(scopeKey).find(
+        (p) => normalizeTag(p.name) === targetName
+      );
+    }
+  }
+
   if (!recipient) {
     return { status: 'missing_recipient' };
   }

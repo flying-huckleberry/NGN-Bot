@@ -65,6 +65,11 @@ function getPlayer(scopeKey, id) {
   return state.players[id] || null;
 }
 
+function listPlayers(scopeKey) {
+  const state = getState(scopeKey);
+  return Object.values(state.players || {});
+}
+
 function updatePlayerCash(scopeKey, id, delta) {
   const state = getState(scopeKey);
   const player = state.players[id];
@@ -142,6 +147,7 @@ function resetAll(scopeKey) {
 module.exports = {
   ensurePlayer,
   getPlayer,
+  listPlayers,
   updatePlayerCash,
   setPlayerPart,
   getRace,

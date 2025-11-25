@@ -78,6 +78,7 @@ const {
   CRYPTO_ALLOWED_COINS = 'BTC,ETH,SOL,DOGE,LTC',
   CRYPTO_STARTING_CASH = '1000',
   COINGECKO_TTL_MS = '60000',
+  SEMANTIC_TARGET_WORD = '',
 } = process.env;
 
 // validate critical oauth vars early
@@ -154,4 +155,7 @@ module.exports = {
   CRYPTO_ALLOWED_COINS: parseCsv(CRYPTO_ALLOWED_COINS).map((c) => c.toUpperCase()),
   CRYPTO_STARTING_CASH: Number(CRYPTO_STARTING_CASH) || 1000,
   COINGECKO_TTL_MS: Number(COINGECKO_TTL_MS) || 0,
+
+  // Semantic game
+  SEMANTIC_TARGET_WORD: (SEMANTIC_TARGET_WORD || '').trim(),
 };

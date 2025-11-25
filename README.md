@@ -9,6 +9,7 @@ A modular Node.js bot that connects to both YouTube Live Chat and Discord. It pr
 - Playground: offline fake chat for developing commands without API calls.
 - Discord transport: discord.js client shares the same command registry and scoped racing state.
 - Crypto paper-trading mini-game with CoinGecko prices and per-scope portfolios.
+- Semantic word-guess game using OpenAI embeddings.
 - Unified web UI: Dev panel and playground in the browser.
 - OAuth2 for YouTube; Discord token-based auth.
 - Scoped persistence: per-playground, per-YouTube channel, and per-Discord guild state.
@@ -96,6 +97,9 @@ If `DISCORD_BOT_TOKEN` is set, the Discord client starts alongside YouTube. Mess
 ### Crypto paper trading
 Enabled by default. Users start with `CRYPTO_STARTING_CASH` USD and can trade allowlisted coins (`CRYPTO_ALLOWED_COINS` tickers CSV). Prices come from CoinGecko `/simple/price`, cached for `COINGECKO_TTL_MS` milliseconds (set 0 for no cache). Commands: `!buy <symbol> <usd>`, `!sell <symbol> <usd>`, `!cash`, `!wallet`, `!coin <symbol>`, `!leaders`. Replies tag the user and respect the chat character limit.
 
+### Semantic word game
+Uses OpenAI embeddings to compare guesses against `SEMANTIC_TARGET_WORD`. Caches the target embedding; similarity is computed locally. Commands: `!guess <word>`, `!semantic` (help), `!semanticwins`, `!semanticreset` (admin: Discord Administrator or YouTube chat owner). Replies show similarity, your best guess, and guess count; a correct guess ends the round for the current target.
+
 ### Scoped state
 Stateful features persist per context:
 - `playground` — offline sandbox state.
@@ -159,6 +163,7 @@ src/
     league.js            # League API commands
     racing/              # Racing game logic, state, parts, venues
     crypto/              # CoinGecko-backed paper trading state/prices
+    semantic/            # Semantic word game state/logic (OpenAI embeddings)
   routes/
     dev.js               # Dev panel handler
     playground.js        # Playground UI
