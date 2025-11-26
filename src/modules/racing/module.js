@@ -35,7 +35,8 @@ const COOLDOWN_MS = Number(RACE_COOLDOWN_MS || 3600000);          // 1h
 const LAST_PLACE_PAYOUT = 50;
 const PLACE_STEP = 25;
 
-let raceTimer = null;
+// Track timers per scope so concurrent scopes don't overwrite each other.
+const raceTimers = new Map();
 
 function getScopeKey(ctx) {
   return ctx.stateScope || 'global';
@@ -254,7 +255,11 @@ async function resolveRace(ctx) {
   const playerIds = race.players || [];
 
   clearRace(scopeKey);
-  raceTimer = null;
+  const existingTimer = raceTimers.get(scopeKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    raceTimers.delete(scopeKey);
+  }
 
   if (playerIds.length <= 1) {
     setCooldownUntil(scopeKey, now + COOLDOWN_MS);
@@ -434,14 +439,17 @@ module.exports = {
           };
           setRace(scopeKey, race);
 
-          // Schedule resolution
-          if (raceTimer) clearTimeout(raceTimer);
-          raceTimer = setTimeout(() => {
-            // fire and forget; ctx.reply is still valid like your riddle command
+          // Schedule resolution for this scope
+          const existingTimer = raceTimers.get(scopeKey);
+          if (existingTimer) {
+            clearTimeout(existingTimer);
+          }
+          const timer = setTimeout(() => {
             resolveRace(ctx).catch((err) => {
               ctx.logger?.error?.('[racing] Error resolving race', err);
             });
           }, JOIN_WINDOW_MS);
+          raceTimers.set(scopeKey, timer);
 
           const mention = ctx.mention(player.id, player.name);
           return ctx.reply(
