@@ -67,42 +67,9 @@ function isAdminOrOwner(ctx) {
   return false;
 }
 
-function cosineToHumanScore(cosine) {
-  if (cosine === null || cosine === undefined || Number.isNaN(cosine)) {
-    return null;
-  }
-
-  // Clamp to [-1, 1] just to be safe
-  let c = Math.max(-1, Math.min(1, cosine));
-
-  const tCold = 0.20;   // up to here = "cold"
-  const tHot = 0.60;    // from here up = "very close"
-  const lowMax = 25;    // max score in the "cold" band
-
-  // Everything negative we just treat as zero-cold
-  if (c <= 0) {
-    return 0;
-  }
-
-  // 0 .. tCold  →  0 .. lowMax  (linear)
-  if (c <= tCold) {
-    return (c / tCold) * lowMax;
-  }
-
-  // tCold .. tHot  →  lowMax .. 100  (linear)
-  if (c < tHot) {
-    const frac = (c - tCold) / (tHot - tCold); // 0..1
-    return lowMax + frac * (100 - lowMax);
-  }
-
-  // tHot+ → maxed out
-  return 100;
-}
-
 function formatScore(n) {
-  const human = cosineToHumanScore(n);
-  if (human === null) return '-';
-  return (Math.round(human * 10) / 10).toFixed(1); // 0.1% resolution
+  if (n === null || n === undefined || Number.isNaN(n)) return '-';
+  return (Math.round(n * 1000) / 10).toFixed(1); // convert 0-1 to 0.1% resolution
 }
 
 function formatBest(best) {
@@ -193,7 +160,7 @@ module.exports = {
                 content:
                   'You are a word similarity grader for a word-guessing game.\n' +
                   'Your job is to analyze the relationship between two English words: a TARGET (single word) and a GUESS.\n' +
-                  'You must score several different kinds of meaning-based closeness between 0 and 100.\n' +
+                  'You must score several different kinds of meaning-based closeness between 0 and 99.\n' +
                   'IMPORTANT:\n' +
                   '- Focus ONLY on meaning and conceptual relationships, unless a field explicitly mentions spelling.\n' +
                   '- Do NOT increase any meaning-based scores just because the words look or sound similar.\n' +
@@ -213,9 +180,14 @@ module.exports = {
                   '  "antonymy": 0,\n' +
                   '  "functional_relation": 0,\n' +
                   '  "association": 0,\n' +
-                  '  "spelling_or_sound_similarity": 0\n' +
+                  '  "spelling_or_sound_similarity": 0,\n' +
+                  '  "final_similarity": 0\n' +
                   '}\n' +
-                  'Fill in each value with an integer from 0 to 100.',
+                  'Rules:\n' +
+                  '- Fill in each value with an integer from 0 to 99\n' +
+                  '- final_similarity should reflect overall closeness: emphasize semantic_domain, synonymy, and association; diminish spelling_or_sound; penalize high antonymy. High final_similarity requires multiple meaning dimensions to be high, not just one.\n' +
+                  '- If the guess is gibberish or not a valid English word/phrase, set all fields to 0.\n' +
+                  '- Return only the JSON, no extra text.',
               },
             ],
           });
@@ -227,7 +199,9 @@ module.exports = {
           } catch (_) {
             parsed = {};
           }
-          const values = Object.values(parsed).filter((v) => Number.isFinite(v));
+          const values = Object.entries(parsed)
+            .filter(([key, val]) => key !== 'final_similarity' && Number.isFinite(val))
+            .map(([, val]) => val);
           score = values.length ? Math.max(...values) / 100 : null;
         } catch (err) {
           if (err?.status === 429) {
@@ -239,6 +213,11 @@ module.exports = {
 
         if (score === null) {
           return ctx.reply(clamp('Similarity could not be computed.'));
+        }
+
+        // Prevent 100% unless the guess exactly matches the target
+        if (guess !== targetWord && score >= 1) {
+          score = 0.99;
         }
 
         player.guesses += 1;
