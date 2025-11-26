@@ -136,4 +136,7 @@ async function askGPT(prompt, maxChars = MAX_CHARS) {
 module.exports = {
   openai, // exported in case we need raw client access elsewhere
   askGPT,
+  getModerationAction,
+  DISALLOWED_MESSAGE,
+  SELF_HARM_MESSAGE,
 };

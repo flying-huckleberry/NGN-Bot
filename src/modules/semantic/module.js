@@ -9,13 +9,9 @@ const {
   isSolved,
   resetAll,
 } = require('../../services/semantic/state');
-const {
-  normalizeWord,
-  embedWord,
-  getTargetEmbedding,
-  cosineSim,
-} = require('../../services/semantic/logic');
+const { normalizeWord } = require('../../services/semantic/logic');
 const { SEMANTIC_TARGET_WORD } = require('../../config/env');
+const { getModerationAction, DISALLOWED_MESSAGE, SELF_HARM_MESSAGE, openai } = require('../../services/openai');
 
 const DEFAULT_MAX_CHARS = Number(MAX_CHARS || 190);
 
@@ -71,13 +67,42 @@ function isAdminOrOwner(ctx) {
   return false;
 }
 
-const SCORE_FLOOR = 0.2; // treat anything below as 0%
-const SCORE_CEIL = 0.9;  // treat anything at/above as 100%
+function cosineToHumanScore(cosine) {
+  if (cosine === null || cosine === undefined || Number.isNaN(cosine)) {
+    return null;
+  }
+
+  // Clamp to [-1, 1] just to be safe
+  let c = Math.max(-1, Math.min(1, cosine));
+
+  const tCold = 0.20;   // up to here = "cold"
+  const tHot = 0.60;    // from here up = "very close"
+  const lowMax = 25;    // max score in the "cold" band
+
+  // Everything negative we just treat as zero-cold
+  if (c <= 0) {
+    return 0;
+  }
+
+  // 0 .. tCold  →  0 .. lowMax  (linear)
+  if (c <= tCold) {
+    return (c / tCold) * lowMax;
+  }
+
+  // tCold .. tHot  →  lowMax .. 100  (linear)
+  if (c < tHot) {
+    const frac = (c - tCold) / (tHot - tCold); // 0..1
+    return lowMax + frac * (100 - lowMax);
+  }
+
+  // tHot+ → maxed out
+  return 100;
+}
+
 function formatScore(n) {
-  if (n === null || n === undefined) return '-';
-  const clamped = Math.max(SCORE_FLOOR, Math.min(SCORE_CEIL, n));
-  const scaled = ((clamped - SCORE_FLOOR) / (SCORE_CEIL - SCORE_FLOOR)) * 100;
-  return (Math.round(scaled * 10) / 10).toFixed(1); // 0.1% resolution
+  const human = cosineToHumanScore(n);
+  if (human === null) return '-';
+  return (Math.round(human * 10) / 10).toFixed(1); // 0.1% resolution
 }
 
 function formatBest(best) {
@@ -106,12 +131,17 @@ module.exports = {
           return ctx.reply(clamp('Usage: !guess <word>'));
         }
 
-        const rawGuess = args[0];
+        const rawGuess = args.join(' ').trim();
         const guess = normalizeWord(rawGuess);
 
-        if (invalidWord(guess)) {
+        // Single-word, letters-only rule
+        if (!guess || /\s/.test(rawGuess) || invalidWord(guess)) {
           const mention = ctx.mention(getPlayerId(ctx), getPlayerName(ctx));
-          return ctx.reply(clamp(`${mention} invalid guess. Use letters only, no spaces.`));
+          return ctx.reply(
+            clamp(
+              `${mention} invalid guess. Use a single word with letters only. (Target is one word.)`
+            )
+          );
         }
 
         const targetWord = normalizeWord(SEMANTIC_TARGET_WORD);
@@ -122,11 +152,6 @@ module.exports = {
         const scopeKey = getScopeKey(ctx);
         if (isSolved(scopeKey)) {
           return ctx.reply(clamp('Game already solved. Restart with a new target to play again.'));
-        }
-
-        const targetVec = await getTargetEmbedding();
-        if (!targetVec) {
-          return ctx.reply(clamp('Could not load target embedding. Try again later.'));
         }
 
         const userId = getPlayerId(ctx);
@@ -146,22 +171,72 @@ module.exports = {
           );
         }
 
-        let guessVec;
+        // Moderation check (guess only)
+        const action = await getModerationAction(guess);
+        if (action === 'self_harm') {
+          return ctx.reply(clamp(SELF_HARM_MESSAGE));
+        }
+        if (action === 'block') {
+          return ctx.reply(clamp(DISALLOWED_MESSAGE));
+        }
+
+        // Call chat to get similarity scores
+        let score = null;
         try {
-          guessVec = await embedWord(guess);
+          const completion = await openai.chat.completions.create({
+            model: ctx.env.OPENAI_MODEL || 'gpt-4o-mini',
+            temperature: 0,
+            response_format: { type: 'json_object' },
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a word similarity grader for a word-guessing game.\n' +
+                  'Your job is to analyze the relationship between two English words: a TARGET (single word) and a GUESS.\n' +
+                  'You must score several different kinds of meaning-based closeness between 0 and 100.\n' +
+                  'IMPORTANT:\n' +
+                  '- Focus ONLY on meaning and conceptual relationships, unless a field explicitly mentions spelling.\n' +
+                  '- Do NOT increase any meaning-based scores just because the words look or sound similar.\n' +
+                  '- If the GUESS is incomprehensible gibberish or not a valid English word/phrase, return 0 for all fields.\n' +
+                  '- Unrelated or extremely weakly related words should receive scores near 0–10 in all meaning-based fields.\n' +
+                  '- Return ONLY a single JSON object, with integer values, no explanation text.\n',
+              },
+              {
+                role: 'user',
+                content:
+                  `TARGET: "${targetWord}"\n` +
+                  `GUESS: "${guess}"\n` +
+                  'Return JSON exactly in this format:\n' +
+                  '{\n' +
+                  '  "semantic_domain": 0,\n' +
+                  '  "synonymy": 0,\n' +
+                  '  "antonymy": 0,\n' +
+                  '  "functional_relation": 0,\n' +
+                  '  "association": 0,\n' +
+                  '  "spelling_or_sound_similarity": 0\n' +
+                  '}\n' +
+                  'Fill in each value with an integer from 0 to 100.',
+              },
+            ],
+          });
+
+          const raw = completion.choices[0]?.message?.content || '{}';
+          let parsed = {};
+          try {
+            parsed = JSON.parse(raw);
+          } catch (_) {
+            parsed = {};
+          }
+          const values = Object.values(parsed).filter((v) => Number.isFinite(v));
+          score = values.length ? Math.max(...values) / 100 : null;
         } catch (err) {
           if (err?.status === 429) {
             const mention = ctx.mention(userId, userName);
             return ctx.reply(clamp(`${mention} OpenAI rate limit exceeded. Try again soon.`));
           }
-          return ctx.reply(clamp('Error computing embedding. Try again later.'));
+          return ctx.reply(clamp('Error computing similarity. Try again later.'));
         }
 
-        if (!guessVec) {
-          return ctx.reply(clamp('Could not embed that guess. Try a different word.'));
-        }
-
-        const score = cosineSim(targetVec, guessVec);
         if (score === null) {
           return ctx.reply(clamp('Similarity could not be computed.'));
         }
