@@ -244,20 +244,21 @@ module.exports = {
       },
     },
 
-    cash: {
-      name: 'cash',
-      description: 'Show your cash balance.',
-      usage: 'cash',
-      aliases: ['balance'],
-      async run(ctx) {
-        const scopeKey = getScopeKey(ctx);
-        const userId = getPlayerId(ctx);
-        const userName = getPlayerName(ctx);
-        const player = ensurePlayer(scopeKey, userId, userName);
-        const mention = ctx.mention(userId, userName);
-        return ctx.reply(clamp(`${mention} has $${formatMoney(player.cash || 0)} cash.`));
-      },
-    },
+    // cash is a racing command already. balance is seen in wallet command and this whole thing seems redundant and confusing
+    // cash: {
+    //   name: 'cash',
+    //   description: 'Show your cash balance.',
+    //   usage: 'cash',
+    //   aliases: ['balance'],
+    //   async run(ctx) {
+    //     const scopeKey = getScopeKey(ctx);
+    //     const userId = getPlayerId(ctx);
+    //     const userName = getPlayerName(ctx);
+    //     const player = ensurePlayer(scopeKey, userId, userName);
+    //     const mention = ctx.mention(userId, userName);
+    //     return ctx.reply(clamp(`${mention} has $${formatMoney(player.cash || 0)} cash.`));
+    //   },
+    // },
 
     wallet: {
       name: 'wallet',
