@@ -389,8 +389,7 @@ module.exports = {
 
         const parts = [];
         ranked.forEach((p, idx) => {
-          const mention = ctx.mention(p.id, p.name);
-          const row = `${idx + 1}) ${mention} $${formatMoney(p.total)}`;
+          const row = `${idx + 1}) ${p.name} $${formatMoney(p.total)}`;
           if (parts.join(' | ').length + row.length + 3 <= DEFAULT_MAX_CHARS) {
             parts.push(row);
           }
@@ -416,10 +415,8 @@ module.exports = {
       description: 'ADMIN-ONLY: Reset all crypto data for this scope.',
       usage: 'cryptoreset',
       aliases: ['resetcrypto'],
+      middleware: [ownerOnly()], // ← only the owner can run this command
       async run(ctx) {
-        if (!isAdminOrOwner(ctx)) {
-          return; // silent deny
-        }
         const scopeKey = getScopeKey(ctx);
         resetAll(scopeKey);
         return ctx.reply(clamp('Crypto state reset for this scope.'));
