@@ -1,5 +1,7 @@
 // src/modules/crypto/module.js
 // CoinGecko-backed paper trading mini-game (scoped per transport).
+
+const { ownerOnly } = require('../../utils/permissions');
 const {
   MAX_CHARS,
   CRYPTO_ALLOWED_COINS,
