@@ -95,11 +95,13 @@ module.exports = {
 
         // no command supplied, show them the commands for the module
         if (!c) {
-          const cmds = Object.entries(mod.commands).map(([name, def]) => {
-            const middle = def.middleware || [];
-            const isAdmin = middle.some((fn) => fn && fn.name && fn.name.includes('ownerOnly'));
-            return isAdmin ? `(Admin Only) ${name}` : name;
-          });
+          const cmds = Object.entries(mod.commands)
+            .filter(([, def]) => !def.hidden)  // skip hidden
+            .map(([name, def]) => {
+              const middle = def.middleware || [];
+              const isAdmin = middle.some((fn) => fn && fn.name && fn.name.includes('ownerOnly'));
+              return isAdmin ? `(Admin Only) ${name}` : name;
+            });
 
           return ctx.reply(`Commands for "${m}": ${cmds.join(' | ')}`);
         }

@@ -530,6 +530,21 @@ module.exports = {
       },
     },
 
+    cash: {
+      name: 'cash',
+      description: 'Show your current cash balance.',
+      usage: 'cash',
+      aliases: ['money'],
+      async run(ctx) {
+        const userId = getPlayerId(ctx);
+        const userName = getPlayerName(ctx);
+        const player = ensurePlayer(getScopeKey(ctx), userId, userName);
+        const amount = player.cash || 0;
+        const mention = ctx.mention(player.id, player.name);
+        await ctx.reply(`${mention} has ${amount} cash.`);
+      },
+    },
+
     upgrade: {
       name: 'upgrade',
       description: 'View or purchase car upgrades.',
@@ -603,21 +618,6 @@ module.exports = {
       },
     },
 
-    cash: {
-      name: 'cash',
-      description: 'Show your current cash balance.',
-      usage: 'cash',
-      aliases: ['money'],
-      async run(ctx) {
-        const userId = getPlayerId(ctx);
-        const userName = getPlayerName(ctx);
-        const player = ensurePlayer(getScopeKey(ctx), userId, userName);
-        const amount = player.cash || 0;
-        const mention = ctx.mention(player.id, player.name);
-        await ctx.reply(`${mention} has ${amount} cash.`);
-      },
-    },
-
     give: {
       name: 'give',
       description: 'Give cash to another racer.',
@@ -662,39 +662,6 @@ module.exports = {
       },
     },
 
-    ihaveagun: {
-      name: 'ihaveagun',
-      description: 'OWNER-ONLY: Guarantees the owner wins the current race.',
-      usage: 'ihaveagun',
-      aliases: [],
-      async run(ctx) {
-        const userId = getPlayerId(ctx);
-        const userName = getPlayerName(ctx);
-        const scopeKey = getScopeKey(ctx);
-        const now = Date.now();
-
-        if (!isOwnerUser(ctx, userId)) {
-          return; // silent deny
-        }
-
-        let race = getRace(scopeKey);
-        if (!race || !race.lobbyEndsAt || race.lobbyEndsAt <= now) {
-          return ctx.reply('No active race lobby to influence.');
-        }
-
-        if (!race.players.includes(userId)) {
-          return ctx.reply('Join the race first with !race, then use !ihaveagun.');
-        }
-
-        ensurePlayer(scopeKey, userId, userName);
-
-        setForcedWinnerId(scopeKey, userId);
-
-        const mention = ctx.mention(userId, userName);
-        return ctx.reply(`${mention} has a gun! Everyone scatters!`);
-      },
-    },
-
     racehelp: {
       name: 'racehelp',
       description: 'Show racing help.',
@@ -721,6 +688,37 @@ module.exports = {
         await ctx.reply(
           `!!! RACING DATA HAS BEEN RESET !!! Next street race, Venue: ${next.venue}; Weather: ${next.weather}`
         );
+      },
+    },
+
+    ihaveagun: {
+      name: 'ihaveagun',
+      description: 'OWNER-ONLY: Guarantees the owner wins the current race.',
+      usage: 'ihaveagun',
+      aliases: [],
+      hidden: true,
+      middleware: [ownerOnly()], // ← only the owner can run this command
+      async run(ctx) {
+        const userId = getPlayerId(ctx);
+        const userName = getPlayerName(ctx);
+        const scopeKey = getScopeKey(ctx);
+        const now = Date.now();
+
+        let race = getRace(scopeKey);
+        if (!race || !race.lobbyEndsAt || race.lobbyEndsAt <= now) {
+          return ctx.reply('No active race lobby to influence.');
+        }
+
+        if (!race.players.includes(userId)) {
+          return ctx.reply('Join the race first with !race, then use !ihaveagun.');
+        }
+
+        ensurePlayer(scopeKey, userId, userName);
+
+        setForcedWinnerId(scopeKey, userId);
+
+        const mention = ctx.mention(userId, userName);
+        return ctx.reply(`${mention} has a gun! Everyone scatters!`);
       },
     },
 
