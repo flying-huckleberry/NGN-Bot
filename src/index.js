@@ -85,7 +85,14 @@ const g = safeRequire('Global state g', './state/g');
       league,
     });
 
-    const dispatch = createRouter({ registry, buildContext });
+    const isModuleDisabled = (moduleName, transport) => {
+      if (transport?.type === 'playground') return false;
+      const disabled = g.disabledModules || [];
+      const lower = String(moduleName || '').toLowerCase();
+      return disabled.some((name) => String(name || '').toLowerCase() === lower);
+    };
+
+    const dispatch = createRouter({ registry, buildContext, isModuleDisabled });
 
     // 2) OAuth routes (save tokens, then startBot)
     mountAuthRoutes(app, { onAuthed: startBot });
@@ -95,6 +102,7 @@ const g = safeRequire('Global state g', './state/g');
       pollOnce: (liveChatId) => pollOnceWithDispatch(liveChatId, dispatch),
       commands: {},
       getDiscordStatus,
+      modules: registry.modules,
     });
 
     // 4) Playground routes

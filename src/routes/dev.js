@@ -39,6 +39,8 @@ function renderDevContent(status = {}) {
     botAuthChannelId = null,
     youtubeChannelId = null,
     discordStatus = null,
+    modules = [],
+    disabledModules = [],
   } = status;
 
   const exists =
@@ -50,6 +52,9 @@ function renderDevContent(status = {}) {
 
   const prettyStatus = JSON.stringify(status, null, 2);
   const isConnected = !!liveChatId;
+  const disabledSet = new Set(
+    (disabledModules || []).map((name) => String(name || '').toLowerCase())
+  );
 
   const lastPollHtml = lastPoll
     ? `
@@ -224,6 +229,56 @@ function renderDevContent(status = {}) {
         </form>
       </div>
 
+      ${
+        modules.length
+          ? `
+      <div style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:#cbd5e1;">Module Toggles</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+          ${modules
+            .map((name) => {
+              const enabled = !disabledSet.has(String(name || '').toLowerCase());
+              return `
+                <label data-module-toggle-wrapper style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb;">
+                  <span style="font-size:0.95rem;">${name}</span>
+                  <span style="position:relative; width:46px; height:24px; display:inline-block;">
+                    <input
+                      type="checkbox"
+                      data-module-toggle="${name}"
+                      ${enabled ? 'checked' : ''}
+                      style="position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;"
+                    />
+                    <span data-toggle-track style="
+                      position:absolute;
+                      inset:0;
+                      background:${enabled ? '#22c55e' : '#1f2937'};
+                      border:1px solid #334155;
+                      border-radius:999px;
+                      transition:all 0.2s ease;
+                    "></span>
+                    <span data-toggle-thumb style="
+                      position:absolute;
+                      top:2px;
+                      left:${enabled ? '24px' : '2px'};
+                      width:20px;
+                      height:20px;
+                      background:#0b1224;
+                      border:1px solid #475569;
+                      border-radius:999px;
+                      box-shadow:0 1px 4px rgba(0,0,0,0.4);
+                      transition:all 0.2s ease;
+                    "></span>
+                  </span>
+                </label>
+              `;
+            })
+            .join('')}
+        </div>
+      </div>
+      `
+          : ''
+      }
+
       <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
         ${youtubeCard}
         ${discordStatusHtml}
@@ -239,6 +294,65 @@ function renderDevContent(status = {}) {
         const attachDevHandlers = () => {
           const root = document.getElementById('dev-root');
           if (!root) return;
+
+          const bindModuleToggles = () => {
+            root.querySelectorAll('input[data-module-toggle]').forEach((input) => {
+            input.addEventListener('change', async (event) => {
+              const target = event.currentTarget;
+              const moduleName = target.dataset.moduleToggle;
+              if (!moduleName) return;
+              const desired = target.checked;
+              const previous = !desired;
+              const wrapper = target.closest('[data-module-toggle-wrapper]');
+              const track = wrapper?.querySelector('[data-toggle-track]');
+              const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+              const applyVisual = (on) => {
+                if (track) {
+                  track.style.background = on ? '#22c55e' : '#1f2937';
+                }
+                if (thumb) {
+                  thumb.style.left = on ? '24px' : '2px';
+                }
+              };
+
+              applyVisual(desired);
+
+              const body = new URLSearchParams();
+              body.append('module', moduleName);
+              body.append('enabled', String(desired));
+
+                target.disabled = true;
+                try {
+                  const res = await fetch('/dev/modules', {
+                    method: 'POST',
+                    headers: {
+                      Accept: 'application/json',
+                      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    },
+                    body,
+                  });
+                  if (!res.ok) throw new Error('Request failed: ' + res.status);
+                  const data = await res.json();
+                  if (data?.html) {
+                    const placeholder = document.createElement('div');
+                    placeholder.innerHTML = data.html;
+                    const nextRoot = placeholder.querySelector('#dev-root');
+                    if (nextRoot && root.parentNode) {
+                      root.parentNode.replaceChild(nextRoot, root);
+                      attachDevHandlers();
+                    }
+                  }
+                } catch (err) {
+                  console.error(err);
+                  target.checked = previous;
+                  applyVisual(previous);
+                  window.alert(err.message || 'Request failed');
+                } finally {
+                  target.disabled = false;
+                }
+              });
+            });
+          };
 
           const setLoading = (isLoading) => {
             root.querySelectorAll('button').forEach((btn) => {
@@ -303,6 +417,8 @@ function renderDevContent(status = {}) {
               { once: true }
             );
           });
+
+          bindModuleToggles();
         };
 
         attachDevHandlers();
@@ -326,23 +442,27 @@ function renderDev(status = {}) {
 /**
  * Mount dev routes onto an existing Express app.
  * @param {import('express').Express} app
- * @param {object} options  { pollOnce, commands }
+ * @param {object} options  { pollOnce, commands, modules }
  */
-function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
+function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus, modules = {} }) {
   app.use(express.urlencoded({ extended: true }));
 
   // Load state early so UI reflects cache immediately
   loadDevState(g);
 
-  const withDiscordStatus = (payload = {}) => ({
+  const moduleNames = Object.keys(modules || {}).sort();
+
+  const withUiState = (payload = {}) => ({
     ...payload,
     youtubeChannelId: g.youtubeChannelId,
+    disabledModules: g.disabledModules || [],
+    modules: moduleNames,
     discordStatus:
       typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
   });
 
   const respondDev = (req, res, payload = {}) => {
-    const body = withDiscordStatus(payload);
+    const body = withUiState(payload);
     if (wantsJson(req)) {
       return res.json({ html: renderDevContent(body) });
     }
@@ -354,7 +474,7 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
     const quota = getQuotaInfo();
     res.send(
       renderDev(
-        withDiscordStatus({
+        withUiState({
           quota,
           liveChatId: g.liveChatId,
           nextPageToken: g.nextPageToken,
@@ -368,6 +488,45 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
   // Optional: /dev '+' redirect to "/"
   app.get('/dev', (req, res) => {
     res.redirect('/');
+  });
+
+  // Toggle modules on/off (applies to YouTube/Discord; sandbox unaffected)
+  app.post('/dev/modules', (req, res) => {
+    const quota = getQuotaInfo();
+    const rawName = String(req.body?.module || '').trim();
+    const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
+    const targetName =
+      moduleNames.find(
+        (n) => n.toLowerCase() === rawName.toLowerCase()
+      ) || null;
+
+    if (!targetName) {
+      return respondDev(req, res, {
+        error: 'Unknown module.',
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
+    }
+
+    const disabled = new Set(
+      (g.disabledModules || []).map((name) => String(name || '').toLowerCase())
+    );
+    const targetKey = targetName.toLowerCase();
+
+    if (enabled) {
+      disabled.delete(targetKey);
+    } else {
+      disabled.add(targetKey);
+    }
+
+    g.disabledModules = Array.from(disabled);
+    saveDevState(g);
+
+    return respondDev(req, res, {
+      message: `${targetName} ${enabled ? 'enabled' : 'disabled'}.`,
+      quota,
+      stateFile: devStateExists() ? 'present' : 'missing',
+    });
   });
 
   // Connect + prime via resolveTargetLiveChatId

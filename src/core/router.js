@@ -3,7 +3,7 @@ const { COMMAND_PREFIX } = require('../config/env');
 const { parseText } = require('../utils/parse');
 
 // Returns dispatcher: (msg) => Promise<void>
-function createRouter({ registry, buildContext }) {
+function createRouter({ registry, buildContext, isModuleDisabled }) {
   // registry: { modules: { [moduleName]: ModuleManifest }, flat: Map<commandName, {mod, def}> }
   return async function dispatch({ msg, liveChatId, transport, platformMeta }) {
     const text = msg?.snippet?.textMessageDetails?.messageText || '';
@@ -16,7 +16,8 @@ function createRouter({ registry, buildContext }) {
     if (modName && cmdName) {
       const mod = registry.modules[modName];
       const def = mod?.commands?.[cmdName];
-      if (def)
+      if (def) {
+        if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta)) return;
         return runCommand({
           mod,
           def,
@@ -27,6 +28,7 @@ function createRouter({ registry, buildContext }) {
           transport,
           platformMeta,
         });
+      }
     }
 
     // 2) space-separated form "!mod cmd"
@@ -34,7 +36,8 @@ function createRouter({ registry, buildContext }) {
       const [maybeCmd, ...rest] = args;
       const mod = registry.modules[modName];
       const def = mod?.commands?.[maybeCmd];
-      if (def)
+      if (def) {
+        if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta)) return;
         return runCommand({
           mod,
           def,
@@ -45,12 +48,14 @@ function createRouter({ registry, buildContext }) {
           transport,
           platformMeta,
         });
+      }
     }
 
     // 3) flat "!cmd"
     const flat = registry.flat.get(modName);
     if (flat) {
       const { mod, def } = flat;
+      if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta)) return;
       return runCommand({
         mod,
         def,
