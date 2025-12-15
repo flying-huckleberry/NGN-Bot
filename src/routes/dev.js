@@ -60,27 +60,27 @@ function renderDevContent(status = {}) {
     : '';
 
   const youtubeCard = `
-    <div style="flex:1; min-width:280px; background:#f9fafb; color:#0f172a; padding:16px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+    <div style="flex:1; min-width:280px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="margin:0; color:#0f172a;">YouTube Transport</h3>
-        <span style="font-size:0.85rem; color:${primed ? '#16a34a' : '#b91c1c'};">
+        <h3 style="margin:0; color:#cbd5e1;">YouTube Transport</h3>
+        <span style="font-size:0.85rem; color:${primed ? '#22c55e' : '#f87171'};">
           ${primed ? 'Primed' : 'Not primed'}
         </span>
       </div>
-      <div style="line-height:1.6; font-size:0.9rem;">
+      <div style="line-height:1.6; font-size:0.9rem; color:#d1d5db;">
         <div><strong>Target Method:</strong> ${
           resolvedMethod
-            ? `<span style="color:#1d4ed8">${resolvedMethod}</span>`
-            : `<span style="color:#6b7280">Not connected</span>`
+            ? `<span style="color:#60a5fa">${resolvedMethod}</span>`
+            : `<span style="color:#94a3b8">Not connected</span>`
         }</div>
         <div><strong>LiveChat ID:</strong> ${
           liveChatId
-            ? `<span style="color:#15803d">${liveChatId}</span>`
-            : `<span style="color:#6b7280">None</span>`
+            ? `<span style="color:#22c55e">${liveChatId}</span>`
+            : `<span style="color:#94a3b8">None</span>`
         }</div>
         ${
           youtubeChannelId
-            ? `<div><strong>YT Channel ID:</strong> <span style="color:#15803d">${youtubeChannelId}</span></div>`
+            ? `<div><strong>YT Channel ID:</strong> <span style="color:#22c55e">${youtubeChannelId}</span></div>`
             : ''
         }
         ${
@@ -89,7 +89,7 @@ function renderDevContent(status = {}) {
             : ''
         }
       </div>
-      <div style="margin-top:12px; font-size:0.85rem; color:#4b5563;">
+      <div style="margin-top:12px; font-size:0.85rem; color:#94a3b8;">
         ${targetInfo.url ? `<div>URL: ${targetInfo.url}</div>` : ''}
         ${targetInfo.videoId ? `<div>Video ID: ${targetInfo.videoId}</div>` : ''}
         ${targetInfo.channelId ? `<div>Channel ID: ${targetInfo.channelId}</div>` : ''}
@@ -97,12 +97,12 @@ function renderDevContent(status = {}) {
       </div>
       ${
         error
-          ? `<p style="color:#b91c1c; margin-top:10px; font-weight:600;"><strong>Error:</strong> ${error}</p>`
+          ? `<p style="color:#f87171; margin-top:10px; font-weight:600;"><strong>Error:</strong> ${error}</p>`
           : ''
       }
       ${
         message
-          ? `<p style="color:#166534; margin-top:10px; font-weight:600;"><strong>${message}</strong></p>`
+          ? `<p style="color:#22c55e; margin-top:10px; font-weight:600;"><strong>${message}</strong></p>`
           : ''
       }
       ${lastPollHtml}
@@ -112,18 +112,18 @@ function renderDevContent(status = {}) {
   const discordState = discordStatus?.state || (discordStatus?.enabled ? 'offline' : 'disabled');
   const discordConnected = discordState === 'ready';
   const discordStatusHtml = `
-    <div style="flex:1; min-width:280px; background:#f9fafb; color:#0f172a; padding:16px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+    <div style="flex:1; min-width:280px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="margin:0; color:#0f172a;">Discord Transport</h3>
-        <span style="font-size:0.85rem; color:${discordConnected ? '#16a34a' : '#b45309'};">
+        <h3 style="margin:0; color:#cbd5e1;">Discord Transport</h3>
+        <span style="font-size:0.85rem; color:${discordConnected ? '#22c55e' : '#fbbf24'};">
           ${discordConnected ? 'Connected' : discordState}
         </span>
       </div>
-      <div style="font-size:0.9rem; line-height:1.6;">
+      <div style="font-size:0.9rem; line-height:1.6; color:#d1d5db;">
         <div><strong>Status:</strong> ${
           discordConnected
-            ? '<span style="color:#16a34a;">Ready</span>'
-            : `<span style="color:#b45309;">${discordState}</span>`
+            ? '<span style="color:#22c55e;">Ready</span>'
+            : `<span style="color:#fbbf24;">${discordState}</span>`
         }</div>
         ${
           discordStatus?.username
@@ -146,7 +146,7 @@ function renderDevContent(status = {}) {
 
   const quotaHtml = quota
     ? `
-      <div style="background:#020617; padding:16px; border-radius:12px; margin-bottom:16px; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+      <div style="background:#0b1224; padding:16px; border-radius:12px; margin-bottom:16px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
         <h3 style="margin-top:0;">YouTube Quota (Est.)</h3>
         <p style="font-size:0.9rem; color:#d1d5db;">
           Used: <strong>${quota.used}</strong> / ${quota.dailyLimit} units
@@ -204,7 +204,7 @@ function renderDevContent(status = {}) {
         </form>
 
         <form action="/dev/reset" method="post" data-dev-action data-confirm="Delete dev_state.json and clear memory?">
-          <button style="background:#300; color:#fff; border:1px solid #a66; padding:8px 12px; border-radius:8px; cursor:pointer;">
+          <button style="background:#d9534f; color:#fff; border:1px solid #d43f3a; padding:8px 12px; border-radius:8px; cursor:pointer;">
             Reset state
           </button>
         </form>
