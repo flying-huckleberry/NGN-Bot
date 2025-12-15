@@ -41,7 +41,6 @@ function renderDevContent(status = {}) {
     discordStatus = null,
   } = status;
 
-  // Fallback: if stateFile not passed, we can still do a direct check
   const exists =
     stateFile === 'present'
       ? true
@@ -52,82 +51,45 @@ function renderDevContent(status = {}) {
   const prettyStatus = JSON.stringify(status, null, 2);
   const isConnected = !!liveChatId;
 
-  const quotaHtml = quota
-    ? `
-      <div style="background:#020617; padding:16px; border-radius:8px; margin-bottom:16px;">
-        <h3 style="margin-top:0;">YouTube Quota (Est.)</h3>
-        <p style="font-size:0.9rem; color:#d1d5db;">
-          Used: <strong>${quota.used}</strong> / ${quota.dailyLimit} units
-          (${quota.percentUsed}%)
-        </p>
-
-        <div style="
-          position:relative;
-          width:100%;
-          height:10px;
-          border-radius:999px;
-          background:#111827;
-          overflow:hidden;
-          margin:8px 0 4px;
-        ">
-          <div style="
-            width:${quota.percentUsed}%;
-            height:100%;
-            background:#22c55e;
-            transition:width 0.2s ease-out;
-          "></div>
-        </div>
-
-        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
-          Resets at midnight Pacific. Last reset: ${quota.lastResetPst || 'unknown'} (PT)
-        </p>
-      </div>
-    `
-    : '';
-
   const lastPollHtml = lastPoll
     ? `
-      <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:16px;">
-        <h3 style="margin-top:0;">Last Poll</h3>
-        <p style="font-size:0.9rem; color:#e5e7eb;">
-          Received: <strong>${lastPoll.received}</strong>,
-          Handled: <strong>${lastPoll.handled}</strong>
-        </p>
-      </div>
-    `
+        <div style="line-height:1.6; font-size:0.9rem;">
+          <strong>Last Poll:</strong> Received: <strong>${lastPoll.received}</strong>; Handled: <strong>${lastPoll.handled}</strong>
+        </div>
+      `
     : '';
 
-  const connectionInfoHtml = `
-    <div style="background:#1f2937; padding:16px; border-radius:8px; margin-bottom:16px;">
-      <h3 style="margin-top:0;">Connection Info</h3>
+  const youtubeCard = `
+    <div style="flex:1; min-width:280px; background:#f9fafb; color:#0f172a; padding:16px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="margin:0; color:#0f172a;">YouTube Transport</h3>
+        <span style="font-size:0.85rem; color:${primed ? '#16a34a' : '#b91c1c'};">
+          ${primed ? 'Primed' : 'Not primed'}
+        </span>
+      </div>
       <div style="line-height:1.6; font-size:0.9rem;">
         <div><strong>Target Method:</strong> ${
           resolvedMethod
-            ? `<span style="color:#93c5fd">${resolvedMethod}</span>`
-            : `<span style="color:#9ca3af">Not connected</span>`
+            ? `<span style="color:#1d4ed8">${resolvedMethod}</span>`
+            : `<span style="color:#6b7280">Not connected</span>`
         }</div>
-        <div><strong>Resolved LiveChat ID:</strong> ${
+        <div><strong>LiveChat ID:</strong> ${
           liveChatId
-            ? `<span style="color:#6ee7b7">${liveChatId}</span>`
-            : `<span style="color:#9ca3af">None</span>`
+            ? `<span style="color:#15803d">${liveChatId}</span>`
+            : `<span style="color:#6b7280">None</span>`
         }</div>
         ${
           youtubeChannelId
-            ? `<div><strong>YT Channel ID:</strong> <code>${youtubeChannelId}</code></div>`
+            ? `<div><strong>YT Channel ID:</strong> <span style="color:#15803d">${youtubeChannelId}</span></div>`
             : ''
         }
-        <div><strong>Primed:</strong> ${
-          primed
-            ? '<span style="color:#6ee7b7">Yes</span>'
-            : '<span style="color:#fda4af">No</span>'
-        }</div>
         ${
           botAuthChannelId
             ? `<div><strong>Bot Channel ID:</strong> <code>${botAuthChannelId}</code></div>`
             : ''
         }
       </div>
-      <div style="margin-top:12px; font-size:0.85rem; color:#9ca3af;">
+      <div style="margin-top:12px; font-size:0.85rem; color:#4b5563;">
         ${targetInfo.url ? `<div>URL: ${targetInfo.url}</div>` : ''}
         ${targetInfo.videoId ? `<div>Video ID: ${targetInfo.videoId}</div>` : ''}
         ${targetInfo.channelId ? `<div>Channel ID: ${targetInfo.channelId}</div>` : ''}
@@ -135,27 +97,33 @@ function renderDevContent(status = {}) {
       </div>
       ${
         error
-          ? `<p style="color:#f87171; margin-top:10px;"><strong>Error:</strong> ${error}</p>`
+          ? `<p style="color:#b91c1c; margin-top:10px; font-weight:600;"><strong>Error:</strong> ${error}</p>`
           : ''
       }
       ${
         message
-          ? `<p style="color:#86efac; margin-top:10px;"><strong>${message}</strong></p>`
+          ? `<p style="color:#166534; margin-top:10px; font-weight:600;"><strong>${message}</strong></p>`
           : ''
       }
+      ${lastPollHtml}
     </div>
   `;
 
   const discordState = discordStatus?.state || (discordStatus?.enabled ? 'offline' : 'disabled');
   const discordConnected = discordState === 'ready';
   const discordStatusHtml = `
-    <div style="background:#111827; padding:16px; border-radius:8px; margin-bottom:16px;">
-      <h3 style="margin-top:0;">Discord Transport</h3>
+    <div style="flex:1; min-width:280px; background:#f9fafb; color:#0f172a; padding:16px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="margin:0; color:#0f172a;">Discord Transport</h3>
+        <span style="font-size:0.85rem; color:${discordConnected ? '#16a34a' : '#b45309'};">
+          ${discordConnected ? 'Connected' : discordState}
+        </span>
+      </div>
       <div style="font-size:0.9rem; line-height:1.6;">
         <div><strong>Status:</strong> ${
           discordConnected
-            ? '<span style="color:#6ee7b7;">Connected</span>'
-            : `<span style="color:#fbbf24;">${discordState}</span>`
+            ? '<span style="color:#16a34a;">Ready</span>'
+            : `<span style="color:#b45309;">${discordState}</span>`
         }</div>
         ${
           discordStatus?.username
@@ -169,12 +137,46 @@ function renderDevContent(status = {}) {
         }
         ${
           discordStatus?.lastError
-            ? `<div style="color:#f87171;"><strong>Last error:</strong> ${discordStatus.lastError}</div>`
+            ? `<div style="color:#b91c1c;"><strong>Last error:</strong> ${discordStatus.lastError}</div>`
             : ''
         }
       </div>
     </div>
   `;
+
+  const quotaHtml = quota
+    ? `
+      <div style="background:#020617; padding:16px; border-radius:12px; margin-bottom:16px; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+        <h3 style="margin-top:0;">YouTube Quota (Est.)</h3>
+        <p style="font-size:0.9rem; color:#d1d5db;">
+          Used: <strong>${quota.used}</strong> / ${quota.dailyLimit} units
+          (${quota.percentUsed}%)
+        </p>
+
+        <div style="
+          position:relative;
+          width:100%;
+          height:12px;
+          border-radius:999px;
+          background:#111827;
+          overflow:hidden;
+          margin:10px 0 6px;
+          border:1px solid #1f2937;
+        ">
+          <div style="
+            width:${quota.percentUsed}%;
+            height:100%;
+            background:linear-gradient(90deg, #22c55e, #16a34a);
+            transition:width 0.2s ease-out;
+          "></div>
+        </div>
+
+        <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+          Resets at midnight Pacific. Last reset: ${quota.lastResetPst || 'unknown'} (PT)
+        </p>
+      </div>
+    `
+    : '';
 
   const inner = `
     <div id="dev-root">
@@ -184,34 +186,54 @@ function renderDevContent(status = {}) {
       <div class="state-status" style="margin:12px 0;">
         State file:
         <span style="color:${exists ? '#6ee7b7' : '#f87171'};">
-          ${exists ? '✅ Present' : '❌ Missing'}
+          ${exists ? '&#9989; Present' : '&#10060; Missing'}
         </span>
       </div>
 
-      ${quotaHtml}
-      ${connectionInfoHtml}
-      ${discordStatusHtml}
-      ${lastPollHtml}
-
       <div class="row" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
         <form action="/dev/connect" method="post" data-dev-action>
-          <button>1) Connect</button>
+          <button style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Connect</button>
         </form>
 
         <form action="/dev/poll" method="post" data-dev-action>
-          <button ${isConnected ? '' : 'disabled title="Connect first"'}>Poll once</button>
+          <button ${isConnected ? '' : 'disabled title="Connect first"'} style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Poll once</button>
         </form>
 
         <form action="/dev/whoami" method="post" data-dev-action>
-          <button>Who am I?</button>
+          <button style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Who am I?</button>
         </form>
 
         <form action="/dev/reset" method="post" data-dev-action data-confirm="Delete dev_state.json and clear memory?">
-          <button style="background:#300; color:#fff; border:1px solid #a66;">
+          <button style="background:#300; color:#fff; border:1px solid #a66; padding:8px 12px; border-radius:8px; cursor:pointer;">
             Reset state
           </button>
         </form>
       </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+        <form action="/dev/connect" method="post" data-dev-action style="flex:1; min-width:260px; background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937;">
+          <label style="display:block; font-size:0.9rem; margin-bottom:6px; color:#cbd5e1;">Connect via Livestream URL</label>
+          <div style="display:flex; gap:8px;">
+            <input name="targetLivestreamUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
+          </div>
+        </form>
+
+        <form action="/dev/connect" method="post" data-dev-action style="flex:1; min-width:260px; background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937;">
+          <label style="display:block; font-size:0.9rem; margin-bottom:6px; color:#cbd5e1;">Connect via Channel ID</label>
+          <div style="display:flex; gap:8px;">
+            <input name="targetChannelId" type="text" placeholder="UCxxxxxxxxxxxx" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
+          </div>
+        </form>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+        ${youtubeCard}
+        ${discordStatusHtml}
+      </div>
+
+      ${quotaHtml}
 
       <h3>Raw Status</h3>
       <pre>${prettyStatus}</pre>
@@ -248,11 +270,21 @@ function renderDevContent(status = {}) {
                 const confirmMsg = form.dataset.confirm;
                 if (confirmMsg && !window.confirm(confirmMsg)) return;
 
+                const formData = new FormData(form);
+                const body = new URLSearchParams();
+                formData.forEach((value, key) => {
+                  body.append(key, value);
+                });
+
                 setLoading(true);
                 try {
                   const res = await fetch(form.action, {
                     method: 'POST',
-                    headers: { Accept: 'application/json' },
+                    headers: {
+                      Accept: 'application/json',
+                      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    },
+                    body,
                   });
                   if (!res.ok) throw new Error('Request failed: ' + res.status);
                   const data = await res.json();
@@ -337,16 +369,22 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
     );
   });
 
-  // Optional: /dev ƒ+' redirect to "/"
+  // Optional: /dev '+' redirect to "/"
   app.get('/dev', (req, res) => {
     res.redirect('/');
   });
 
   // Connect + prime via resolveTargetLiveChatId
   app.post('/dev/connect', async (req, res) => {
+    const targetLivestreamUrl = (req.body?.targetLivestreamUrl || '').trim();
+    const targetChannelId = (req.body?.targetChannelId || '').trim();
+
     try {
       const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
-        await resolveTargetLiveChatId();
+        await resolveTargetLiveChatId({
+          livestreamUrl: targetLivestreamUrl,
+          channelId: targetChannelId,
+        });
 
       const token = await primeChat(liveChatId);
       g.liveChatId = liveChatId;
@@ -426,7 +464,7 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
 
     try {
       const result = await pollOnce(g.liveChatId);
-      // liveChatMessages.list ƒ%^ 5 units
+      // liveChatMessages.list ~5 units
       const quota = addQuotaUsage(5);
 
       return respondDev(req, res, {

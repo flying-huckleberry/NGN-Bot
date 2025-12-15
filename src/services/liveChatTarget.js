@@ -20,23 +20,46 @@ const {
 const PRIME_ESTIMATE_UNITS = 5;
 
 /**
- * Resolves the liveChatId based on .env:
+ * Resolves the liveChatId based on overrides or .env:
+ * Overrides priority:
+ *   a) livestreamUrl (URL)
+ *   b) channelId
+ *
+ * Otherwise .env priority:
  * 1) TARGET_LIVESTREAM_URL
  * 2) TARGET_VIDEO_ID
  * 3) TARGET_CHANNEL_ID (+ TARGET_TITLE_MATCH)
  *
  * Returns:
- *   { liveChatId, method, targetInfo, estimatedUnits }
+ *   { liveChatId, method, targetInfo, estimatedUnits, channelId }
  *
  * Throws with a helpful message if none is set or if resolution fails.
  */
-async function resolveTargetLiveChatId() {
+async function resolveTargetLiveChatId(overrides = {}) {
+  const overrideUrl = (overrides.livestreamUrl || '').trim();
+  const overrideChannelId = (overrides.channelId || '').trim();
   let result;
   let method;
   let targetInfo = {};
   let discoverCost = 0;
 
-  if (TARGET_LIVESTREAM_URL) {
+  if (overrideUrl) {
+    result = await getLiveChatIdFromUrl(overrideUrl);
+    method = 'Livestream URL (override)';
+    targetInfo = { url: overrideUrl, videoId: result?.videoId };
+    discoverCost = 1;
+  } else if (overrideChannelId) {
+    result = await getLiveChatIdForChannel(
+      overrideChannelId,
+      (TARGET_TITLE_MATCH || '').trim()
+    );
+    method = 'Channel ID (override)';
+    targetInfo = {
+      channelId: overrideChannelId,
+      titleMatch: TARGET_TITLE_MATCH || '',
+    };
+    discoverCost = 101;
+  } else if (TARGET_LIVESTREAM_URL) {
     result = await getLiveChatIdFromUrl(TARGET_LIVESTREAM_URL);
     method = 'Livestream URL';
     targetInfo = { url: TARGET_LIVESTREAM_URL, videoId: result?.videoId };
@@ -59,7 +82,7 @@ async function resolveTargetLiveChatId() {
     discoverCost = 101;
   } else {
     throw new Error(
-      'Set one of TARGET_LIVESTREAM_URL, TARGET_VIDEO_ID, or TARGET_CHANNEL_ID in .env'
+      'Set one of TARGET_LIVESTREAM_URL, TARGET_VIDEO_ID, or TARGET_CHANNEL_ID in .env, or provide an override.'
     );
   }
 
@@ -71,7 +94,7 @@ async function resolveTargetLiveChatId() {
 
   return {
     liveChatId: result.liveChatId,
-    channelId: result.channelId || TARGET_CHANNEL_ID || null,
+    channelId: result.channelId || overrideChannelId || TARGET_CHANNEL_ID || null,
     method,
     targetInfo,
     estimatedUnits,
