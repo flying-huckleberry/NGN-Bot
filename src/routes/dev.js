@@ -17,9 +17,15 @@ const { resolveTargetLiveChatId } = require('../services/liveChatTarget');
 const { primeChat } = require('../services/youtube');
 const g = require('../state/g');
 
-// ───────────────── renderDev ─────────────────
+// ----------------- helpers -----------------
 
-function renderDev(status = {}) {
+function wantsJson(req) {
+  return req.headers.accept?.includes('application/json');
+}
+
+// ----------------- renderDev -----------------
+
+function renderDevContent(status = {}) {
   const {
     liveChatId = null,
     primed = false,
@@ -27,9 +33,9 @@ function renderDev(status = {}) {
     message = null,
     resolvedMethod = null,
     targetInfo = {},
-    quota = null,          // { dailyLimit, used, remaining, percentUsed, lastResetPst }
-    stateFile = null,      // 'present' | 'missing' | null (from route)
-    lastPoll = null,       // { received, handled } if provided
+    quota = null, // { dailyLimit, used, remaining, percentUsed, lastResetPst }
+    stateFile = null, // 'present' | 'missing' | null (from route)
+    lastPoll = null, // { received, handled } if provided
     botAuthChannelId = null,
     youtubeChannelId = null,
     discordStatus = null,
@@ -171,54 +177,123 @@ function renderDev(status = {}) {
   `;
 
   const inner = `
-    <h2>YT Bot — Dev Panel</h2>
-    <p>Mode: <b style="color:#93c5fd">DEV</b> — manual control to conserve quota.</p>
+    <div id="dev-root">
+      <h2>YT Bot - Dev Panel</h2>
+      <p>Mode: <b style="color:#93c5fd">DEV</b> - manual control to conserve quota.</p>
 
-    <div class="state-status" style="margin:12px 0;">
-      State file:
-      <span style="color:${exists ? '#6ee7b7' : '#f87171'};">
-        ${exists ? '✅ Present' : '❌ Missing'}
-      </span>
+      <div class="state-status" style="margin:12px 0;">
+        State file:
+        <span style="color:${exists ? '#6ee7b7' : '#f87171'};">
+          ${exists ? '✅ Present' : '❌ Missing'}
+        </span>
+      </div>
+
+      ${quotaHtml}
+      ${connectionInfoHtml}
+      ${discordStatusHtml}
+      ${lastPollHtml}
+
+      <div class="row" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+        <form action="/dev/connect" method="post" data-dev-action>
+          <button>1) Connect</button>
+        </form>
+
+        <form action="/dev/poll" method="post" data-dev-action>
+          <button ${isConnected ? '' : 'disabled title="Connect first"'}>Poll once</button>
+        </form>
+
+        <form action="/dev/whoami" method="post" data-dev-action>
+          <button>Who am I?</button>
+        </form>
+
+        <form action="/dev/reset" method="post" data-dev-action data-confirm="Delete dev_state.json and clear memory?">
+          <button style="background:#300; color:#fff; border:1px solid #a66;">
+            Reset state
+          </button>
+        </form>
+      </div>
+
+      <h3>Raw Status</h3>
+      <pre>${prettyStatus}</pre>
     </div>
+    <script>
+      (function () {
+        const attachDevHandlers = () => {
+          const root = document.getElementById('dev-root');
+          if (!root) return;
 
-    ${quotaHtml}
-    ${connectionInfoHtml}
-    ${discordStatusHtml}
-    ${lastPollHtml}
+          const setLoading = (isLoading) => {
+            root.querySelectorAll('button').forEach((btn) => {
+              const alreadyDisabled = btn.dataset.originalDisabled === 'true';
+              if (isLoading) {
+                btn.dataset.originalDisabled = btn.hasAttribute('disabled') ? 'true' : 'false';
+                btn.disabled = true;
+                if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+                btn.textContent = 'Working...';
+              } else {
+                if (!alreadyDisabled) btn.disabled = false;
+                if (btn.dataset.originalText) {
+                  btn.textContent = btn.dataset.originalText;
+                  delete btn.dataset.originalText;
+                }
+              }
+            });
+          };
 
-    <div class="row" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
-      <form action="/dev/connect" method="post">
-        <button>1) Connect</button>
-      </form>
+          root.querySelectorAll('form[data-dev-action]').forEach((form) => {
+            form.addEventListener(
+              'submit',
+              async (event) => {
+                event.preventDefault();
+                const confirmMsg = form.dataset.confirm;
+                if (confirmMsg && !window.confirm(confirmMsg)) return;
 
-      <form action="/dev/poll" method="post">
-        <button ${isConnected ? '' : 'disabled title="Connect first"'}>Poll once</button>
-      </form>
+                setLoading(true);
+                try {
+                  const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { Accept: 'application/json' },
+                  });
+                  if (!res.ok) throw new Error('Request failed: ' + res.status);
+                  const data = await res.json();
+                  if (data?.html) {
+                    const placeholder = document.createElement('div');
+                    placeholder.innerHTML = data.html;
+                    const nextRoot = placeholder.querySelector('#dev-root');
+                    if (nextRoot && root.parentNode) {
+                      root.parentNode.replaceChild(nextRoot, root);
+                      attachDevHandlers();
+                    }
+                  }
+                } catch (err) {
+                  console.error(err);
+                  window.alert(err.message || 'Request failed');
+                } finally {
+                  setLoading(false);
+                }
+              },
+              { once: true }
+            );
+          });
+        };
 
-      <form action="/dev/whoami" method="post">
-        <button>Who am I?</button>
-      </form>
-
-      <form action="/dev/reset" method="post"
-            onsubmit="return confirm('Delete dev_state.json and clear memory?')">
-        <button style="background:#300; color:#fff; border:1px solid #a66;">
-          Reset state
-        </button>
-      </form>
-    </div>
-
-    <h3>Raw Status</h3>
-    <pre>${prettyStatus}</pre>
+        attachDevHandlers();
+      })();
+    </script>
   `;
 
+  return inner;
+}
+
+function renderDev(status = {}) {
   return renderLayout({
     title: 'Dev Panel',
     active: 'dev',
-    content: inner,
+    content: renderDevContent(status),
   });
 }
 
-// ───────────────── registerDevRoutes ─────────────────
+// ----------------- registerDevRoutes -----------------
 
 /**
  * Mount dev routes onto an existing Express app.
@@ -238,6 +313,14 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
       typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
   });
 
+  const respondDev = (req, res, payload = {}) => {
+    const body = withDiscordStatus(payload);
+    if (wantsJson(req)) {
+      return res.json({ html: renderDevContent(body) });
+    }
+    return res.send(renderDev(body));
+  };
+
   // Main dev panel at "/"
   app.get('/', (req, res) => {
     const quota = getQuotaInfo();
@@ -254,7 +337,7 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
     );
   });
 
-  // Optional: /dev → redirect to "/"
+  // Optional: /dev ƒ+' redirect to "/"
   app.get('/dev', (req, res) => {
     res.redirect('/');
   });
@@ -274,30 +357,22 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
 
       const quota = addQuotaUsage(estimatedUnits);
 
-      return res.send(
-        renderDev(
-          withDiscordStatus({
-            liveChatId,
-            primed: true,
-            resolvedMethod: method,
-            targetInfo,
-            message: `Connected and primed successfully. ~${estimatedUnits} units.`,
-            quota,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        liveChatId,
+        primed: true,
+        resolvedMethod: method,
+        targetInfo,
+        message: `Connected and primed successfully. ~${estimatedUnits} units.`,
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     } catch (err) {
       const quota = getQuotaInfo();
-      return res.send(
-        renderDev(
-          withDiscordStatus({
-            error: err.message || String(err),
-            quota,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        error: err.message || String(err),
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     }
   });
 
@@ -305,15 +380,11 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
   app.post('/dev/prime', async (req, res) => {
     if (!g.liveChatId) {
       const quota = getQuotaInfo();
-      return res.send(
-        renderDev(
-          withDiscordStatus({
-            error: 'Not connected.',
-            quota,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        error: 'Not connected.',
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     }
 
     try {
@@ -324,29 +395,21 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
 
       const quota = getQuotaInfo(); // priming cost is already accounted at connect time
 
-      res.send(
-        renderDev(
-          withDiscordStatus({
-            primed: g.primed,
-            token,
-            liveChatId: g.liveChatId,
-            quota,
-            message: 'Re-primed: starting fresh from current point in chat.',
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        primed: g.primed,
+        token,
+        liveChatId: g.liveChatId,
+        quota,
+        message: 'Re-primed: starting fresh from current point in chat.',
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     } catch (e) {
       const quota = getQuotaInfo();
-      res.send(
-        renderDev(
-          withDiscordStatus({
-            error: e.message || String(e),
-            quota,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        error: e.message || String(e),
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     }
   });
 
@@ -354,68 +417,52 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
   app.post('/dev/poll', async (req, res) => {
     if (!g.liveChatId) {
       const quota = getQuotaInfo();
-      return res.send(
-        renderDev(
-          withDiscordStatus({
-            error: 'Not connected.',
-            quota,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        error: 'Not connected.',
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     }
 
     try {
       const result = await pollOnce(g.liveChatId);
-      // liveChatMessages.list ≈ 5 units
+      // liveChatMessages.list ƒ%^ 5 units
       const quota = addQuotaUsage(5);
 
-      return res.send(
-        renderDev(
-          withDiscordStatus({
-            liveChatId: g.liveChatId,
-            primed: g.primed,
-            lastPoll: {
-              received: result.received,
-              handled: result.handled,
-            },
-            quota,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        liveChatId: g.liveChatId,
+        primed: g.primed,
+        lastPoll: {
+          received: result.received,
+          handled: result.handled,
+        },
+        quota,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     } catch (e) {
       const quota = getQuotaInfo();
-      return res.send(
-        renderDev(
-          withDiscordStatus({
-            error: e.message || String(e),
-            quota,
-            liveChatId: g.liveChatId,
-            primed: g.primed,
-            stateFile: devStateExists() ? 'present' : 'missing',
-          })
-        )
-      );
+      return respondDev(req, res, {
+        error: e.message || String(e),
+        quota,
+        liveChatId: g.liveChatId,
+        primed: g.primed,
+        stateFile: devStateExists() ? 'present' : 'missing',
+      });
     }
   });
 
-  // WhoAmI — debug endpoint
+  // WhoAmI - debug endpoint
   app.post('/dev/whoami', async (req, res) => {
     const quota = getQuotaInfo();
-    res.send(
-      renderDev(
-        withDiscordStatus({
-          botAuthChannelId: 'unknown (derive as needed)',
-          liveChatId: g.liveChatId,
-          nextPageToken: g.nextPageToken,
-          primed: g.primed,
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-          message: 'WhoAmI: see Raw Status for current g/dev state.',
-        })
-      )
-    );
+    return respondDev(req, res, {
+      botAuthChannelId: 'unknown (derive as needed)',
+      liveChatId: g.liveChatId,
+      nextPageToken: g.nextPageToken,
+      primed: g.primed,
+      quota,
+      stateFile: devStateExists() ? 'present' : 'missing',
+      message: 'WhoAmI: see Raw Status for current g/dev state.',
+    });
   });
 
   // Reset dev state
@@ -423,19 +470,15 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
     resetDevState(g);
 
     const quota = getQuotaInfo();
-    res.send(
-      renderDev(
-        withDiscordStatus({
-          reset: true,
-          liveChatId: g.liveChatId,
-          nextPageToken: g.nextPageToken,
-          primed: g.primed,
-          quota,
-          stateFile: devStateExists() ? 'present' : 'missing',
-          message: 'Dev state reset.',
-        })
-      )
-    );
+    return respondDev(req, res, {
+      reset: true,
+      liveChatId: g.liveChatId,
+      nextPageToken: g.nextPageToken,
+      primed: g.primed,
+      quota,
+      stateFile: devStateExists() ? 'present' : 'missing',
+      message: 'Dev state reset.',
+    });
   });
 }
 
