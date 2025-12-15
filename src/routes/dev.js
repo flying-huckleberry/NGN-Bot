@@ -100,16 +100,6 @@ function renderDevContent(status = {}) {
         ${targetInfo.channelId ? `<div>Channel ID: ${targetInfo.channelId}</div>` : ''}
         ${targetInfo.titleMatch ? `<div>Title Match: "${targetInfo.titleMatch}"</div>` : ''}
       </div>
-      ${
-        error
-          ? `<p style="color:#f87171; margin-top:10px; font-weight:600;"><strong>Error:</strong> ${error}</p>`
-          : ''
-      }
-      ${
-        message
-          ? `<p style="color:#22c55e; margin-top:10px; font-weight:600;"><strong>${message}</strong></p>`
-          : ''
-      }
       ${lastPollHtml}
     </div>
   `;
@@ -184,7 +174,50 @@ function renderDevContent(status = {}) {
     : '';
 
   const inner = `
-    <div id="dev-root">
+    <div id="dev-root" style="position:relative;">
+      ${message
+        ? `<div id="dev-flash" style="
+              position:fixed;
+              top:12px;
+              left:50%;
+              transform:translateX(-50%);
+              z-index:9999;
+              width:90%;
+              max-width:900px;
+              padding:12px 16px;
+              border-radius:10px;
+              background:#1e3a8a;
+              border:1px solid #374d81;
+              color:#e0f2fe;
+              box-shadow:0 8px 24px rgba(0,0,0,0.35);
+              opacity:0.7;
+              text-align:center;
+            ">
+             ${message}
+           </div>`
+        : ''}
+      ${error
+        ? `<div id="dev-flash-error" style="
+              position:fixed;
+              top:12px;
+              left:50%;
+              transform:translateX(-50%);
+              z-index:9999;
+              width:90%;
+              max-width:900px;
+              padding:12px 16px;
+              border-radius:10px;
+              background:#7f1d1d;
+              border:1px solid #991b1b;
+              color:#fee2e2;
+              box-shadow:0 8px 24px rgba(0,0,0,0.35);
+              opacity:0.85;
+              text-align:center;
+              margin-top:${message ? '48px' : '0'};
+            ">
+             ${error}
+           </div>`
+        : ''}
       <h2>Chat Bot - Dev Panel</h2>
       <p>Mode: <b style="color:#93c5fd">DEV</b> - manual control to conserve quota.</p>
 
@@ -295,11 +328,29 @@ function renderDevContent(status = {}) {
           const root = document.getElementById('dev-root');
           if (!root) return;
 
+          // Auto-dismiss flash message
+          const flash = document.getElementById('dev-flash');
+          if (flash) {
+            setTimeout(() => {
+              flash.style.transition = 'opacity 0.3s ease';
+              flash.style.opacity = '0';
+              setTimeout(() => flash.remove(), 300);
+            }, 5000);
+          }
+          const flashError = document.getElementById('dev-flash-error');
+          if (flashError) {
+            setTimeout(() => {
+              flashError.style.transition = 'opacity 0.3s ease';
+              flashError.style.opacity = '0';
+              setTimeout(() => flashError.remove(), 300);
+            }, 5000);
+          }
+
           const bindModuleToggles = () => {
             root.querySelectorAll('input[data-module-toggle]').forEach((input) => {
-            input.addEventListener('change', async (event) => {
-              const target = event.currentTarget;
-              const moduleName = target.dataset.moduleToggle;
+              input.addEventListener('change', async (event) => {
+                const target = event.currentTarget;
+                const moduleName = target.dataset.moduleToggle;
               if (!moduleName) return;
               const desired = target.checked;
               const previous = !desired;

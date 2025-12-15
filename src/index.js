@@ -78,6 +78,13 @@ const g = safeRequire('Global state g', './state/g');
     // 1) Load all command modules and build the dispatcher
     const modulesDir = path.join(__dirname, 'modules');
     const registry = loadModules(modulesDir);
+    // Attach __disabled flags based on current g.disabledModules so help filtering works
+    const disabledSet = new Set(
+      (g.disabledModules || []).map((name) => String(name || '').toLowerCase())
+    );
+    Object.values(registry.modules || {}).forEach((mod) => {
+      mod.__disabled = disabledSet.has(String(mod.name || '').toLowerCase());
+    });
 
     const buildContext = buildContextFactory({
       youtube,
