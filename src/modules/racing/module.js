@@ -581,7 +581,7 @@ module.exports = {
         const choiceKey = resolveChoiceKey(partKey, choiceRaw);
         if (!choiceKey) {
           return ctx.reply(
-            `No upgrade "${choiceRaw}" for ${partKey}. Type !upgrade ${partKey} to see options.`
+            `Unknown upgrade for ${partKey}. Type !upgrade ${partKey} to see options.`
           );
         }
 

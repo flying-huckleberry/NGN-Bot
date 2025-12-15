@@ -76,6 +76,8 @@ function buildContextFactoryForPlayground() {
       scopeInfo: { scopeKey: 'playground', source: { type: 'playground' } },
     };
 
+    ctx.mention = (_userId, fallbackName = ctx.authorName || 'user') => fallbackName;
+
     ctx.reply = async (text, meta = {}) => {
       const reply = String(text ?? '');
 
