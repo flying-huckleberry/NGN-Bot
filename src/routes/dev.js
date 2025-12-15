@@ -75,7 +75,7 @@ function renderDevContent(status = {}) {
         }</div>
         <div><strong>LiveChat ID:</strong> ${
           liveChatId
-            ? `<span style="color:#22c55e">${liveChatId}</span>`
+            ? `<span style="color:#22c55e;overflow-wrap:anywhere">${liveChatId}</span>`
             : `<span style="color:#94a3b8">None</span>`
         }</div>
         ${
@@ -197,10 +197,6 @@ function renderDevContent(status = {}) {
 
         <form action="/dev/poll" method="post" data-dev-action>
           <button ${isConnected ? '' : 'disabled title="Connect first"'} style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Poll once</button>
-        </form>
-
-        <form action="/dev/whoami" method="post" data-dev-action>
-          <button style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Who am I?</button>
         </form>
 
         <form action="/dev/reset" method="post" data-dev-action data-confirm="Delete dev_state.json and clear memory?">
@@ -487,20 +483,6 @@ function registerDevRoutes(app, { pollOnce, commands, getDiscordStatus }) {
         stateFile: devStateExists() ? 'present' : 'missing',
       });
     }
-  });
-
-  // WhoAmI - debug endpoint
-  app.post('/dev/whoami', async (req, res) => {
-    const quota = getQuotaInfo();
-    return respondDev(req, res, {
-      botAuthChannelId: 'unknown (derive as needed)',
-      liveChatId: g.liveChatId,
-      nextPageToken: g.nextPageToken,
-      primed: g.primed,
-      quota,
-      stateFile: devStateExists() ? 'present' : 'missing',
-      message: 'WhoAmI: see Raw Status for current g/dev state.',
-    });
   });
 
   // Reset dev state
