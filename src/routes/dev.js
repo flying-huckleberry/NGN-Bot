@@ -180,7 +180,7 @@ function renderDevContent(status = {}) {
 
   const inner = `
     <div id="dev-root">
-      <h2>YT Bot - Dev Panel</h2>
+      <h2>Chat Bot - Dev Panel</h2>
       <p>Mode: <b style="color:#93c5fd">DEV</b> - manual control to conserve quota.</p>
 
       <div class="state-status" style="margin:12px 0;">

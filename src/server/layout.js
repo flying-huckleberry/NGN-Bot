@@ -2,7 +2,7 @@
 const { MODE } = require('../config/env');
 
 function renderLayout({ title, active, content }) {
-  const safeTitle = title || 'YouTube Bot Panel';
+  const safeTitle = title || 'Chat Bot Panel';
 
   // active is one of: 'dev', 'sandbox', 'auth' (or whatever you like)
   const isActive = (key) => (active === key ? 'class="active"' : '');
@@ -80,7 +80,7 @@ function renderLayout({ title, active, content }) {
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <h1>YouTube Bot</h1>
+        <h1>Chat Bot</h1>
         <p class="mode">Mode: <strong>${MODE}</strong></p>
         <ul class="nav">
           <li><a href="/" ${isActive('dev')}>Dev Panel</a></li>
