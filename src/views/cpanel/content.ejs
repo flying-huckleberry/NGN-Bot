@@ -12,7 +12,6 @@
 <% const discordConnected = discordState === 'ready'; %>
 <% const disabledSet = new Set((settings?.disabledModules || []).map((name) => String(name || '').toLowerCase())); %>
 <% const allowedChannelsCsv = (settings?.discord?.allowedChannelIds || []).join(','); %>
-<% const cryptoAllowedCsv = (settings?.crypto?.allowedCoins || []).join(','); %>
 
 <div id="cpanel-root" style="position:relative;">
   <%- include('../partials/flash', { message, error }) %>
@@ -247,32 +246,8 @@
           <input name="discordAllowedChannelIds" type="text" value="<%= allowedChannelsCsv %>" placeholder="123,456" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
         </label>
         <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          Discord Racing Channel ID
-          <input name="discordRacingChannelId" type="text" value="<%= settings?.discord?.racingChannelId || '' %>" placeholder="1234567890" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        </label>
-        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
           Command Prefix
           <input name="commandPrefix" type="text" value="<%= settings?.commandPrefix || '!' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        </label>
-        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          Race Cooldown (ms)
-          <input name="raceCooldownMs" type="number" value="<%= settings?.race?.cooldownMs || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        </label>
-        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          Race Join Window (ms)
-          <input name="raceJoinWindowMs" type="number" value="<%= settings?.race?.joinWindowMs || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        </label>
-        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          Crypto Allowed Coins (CSV)
-          <input name="cryptoAllowedCoins" type="text" value="<%= cryptoAllowedCsv %>" placeholder="BTC,ETH" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        </label>
-        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          Crypto Starting Cash
-          <input name="cryptoStartingCash" type="number" value="<%= settings?.crypto?.startingCash || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        </label>
-        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          CoinGecko TTL (ms)
-          <input name="cryptoTtlMs" type="number" value="<%= settings?.crypto?.coingeckoTtlMs || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
         </label>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -290,9 +265,10 @@
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
         <% modules.forEach((name) => { %>
           <% const enabled = !disabledSet.has(String(name || '').toLowerCase()); %>
-          <label data-module-toggle-wrapper style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb;">
+          <div data-module-toggle-wrapper data-module-card style="position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb; transition:background 0.2s ease;">
+            <a href="/accounts/<%= account.id %>/modules/<%= encodeURIComponent(String(name || '').toLowerCase()) %>" aria-label="Edit <%= name %> module settings" style="position:absolute; inset:0; border-radius:8px; z-index:1; cursor:pointer;"></a>
             <span style="font-size:0.95rem;"><%= name %></span>
-            <span style="position:relative; width:46px; height:24px; display:inline-block;">
+            <span data-module-toggle-hit style="position:relative; width:46px; height:24px; display:inline-block; z-index:2; cursor:pointer;">
               <input
                 type="checkbox"
                 data-module-toggle="<%= name %>"
@@ -320,7 +296,7 @@
                 transition:all 0.2s ease;
               "></span>
             </span>
-          </label>
+          </div>
         <% }) %>
       </div>
     </div>
@@ -408,6 +384,31 @@
             } finally {
               target.disabled = false;
             }
+          });
+        });
+      };
+
+      const bindModuleCardHover = () => {
+        root.querySelectorAll('[data-module-card]').forEach((card) => {
+          if (card.dataset.bound === 'true') return;
+          card.dataset.bound = 'true';
+          const hoverColor = '#1b2c4d';
+          const baseColor = '#0f172a';
+          const toggleHit = card.querySelector('[data-module-toggle-hit]');
+
+          const isOverToggle = (target) => toggleHit && toggleHit.contains(target);
+          const applyHover = (on) => {
+            card.style.background = on ? hoverColor : baseColor;
+          };
+
+          card.addEventListener('mouseenter', (event) => {
+            if (!isOverToggle(event.target)) applyHover(true);
+          });
+          card.addEventListener('mousemove', (event) => {
+            applyHover(!isOverToggle(event.target));
+          });
+          card.addEventListener('mouseleave', () => {
+            applyHover(false);
           });
         });
       };
@@ -572,6 +573,7 @@
       bindModuleToggles();
       bindTransportToggles();
       bindCopyButtons();
+      bindModuleCardHover();
     };
 
     attachHandlers();

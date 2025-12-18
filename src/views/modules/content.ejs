@@ -1,0 +1,121 @@
+<% const allowedCoinsCsv = (settings?.crypto?.allowedCoins || []).join(','); %>
+<% const moduleKey = moduleName ? moduleName.toLowerCase() : ''; %>
+<% const moduleLabel = moduleName ? moduleName.charAt(0).toUpperCase() + moduleName.slice(1) : 'Module'; %>
+<% const pageMessage = typeof message === 'undefined' ? null : message; %>
+<% const pageError = typeof error === 'undefined' ? null : error; %>
+
+<div id="module-root" style="position:relative;">
+  <%- include('../partials/flash', { message: pageMessage, error: pageError }) %>
+  <h2>Module Settings</h2>
+  <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
+  <p><a href="/accounts/<%= account.id %>/cpanel" style="color:#93c5fd; text-decoration:none;">&larr; Back to control panel</a></p>
+
+  <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;"><%= moduleLabel %> Module</h3>
+    <form action="/accounts/<%= account.id %>/modules/<%= moduleKey %>" method="post" data-module-action style="display:grid; gap:12px;">
+      <% if (moduleKey === 'racing') { %>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Discord Racing Channel ID
+            <input name="discordRacingChannelId" type="text" value="<%= settings?.discord?.racingChannelId || '' %>" placeholder="1234567890" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Race Cooldown (ms)
+            <input name="raceCooldownMs" type="number" value="<%= settings?.race?.cooldownMs ?? '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Race Join Window (ms)
+            <input name="raceJoinWindowMs" type="number" value="<%= settings?.race?.joinWindowMs ?? '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+        </div>
+      <% } %>
+
+      <% if (moduleKey === 'crypto') { %>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Crypto Allowed Coins (CSV)
+            <input name="cryptoAllowedCoins" type="text" value="<%= allowedCoinsCsv %>" placeholder="BTC,ETH" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Crypto Starting Cash
+            <input name="cryptoStartingCash" type="number" value="<%= settings?.crypto?.startingCash ?? '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            CoinGecko TTL (ms)
+            <input name="cryptoTtlMs" type="number" value="<%= settings?.crypto?.coingeckoTtlMs ?? '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+        </div>
+      <% } %>
+
+      <% if (moduleKey === 'racing' || moduleKey === 'crypto') { %>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save Module Settings</button>
+        </div>
+      <% } else { %>
+        <p style="margin:0; color:#94a3b8;">No editable settings for this module yet.</p>
+      <% } %>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const attachHandlers = () => {
+      const root = document.getElementById('module-root');
+      if (!root) return;
+
+      const flash = document.getElementById('cpanel-flash');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.3s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 300);
+        }, 5000);
+      }
+      const flashError = document.getElementById('cpanel-flash-error');
+      if (flashError) {
+        setTimeout(() => {
+          flashError.style.transition = 'opacity 0.3s ease';
+          flashError.style.opacity = '0';
+          setTimeout(() => flashError.remove(), 300);
+        }, 5000);
+      }
+
+      root.querySelectorAll('form[data-module-action]').forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const formData = new FormData(form);
+          const body = new URLSearchParams();
+          formData.forEach((value, key) => body.append(key, value));
+
+          try {
+            const res = await fetch(form.action, {
+              method: 'POST',
+              headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              },
+              body,
+            });
+            if (!res.ok) throw new Error('Request failed: ' + res.status);
+            const data = await res.json();
+            if (data?.html) {
+              const placeholder = document.createElement('div');
+              placeholder.innerHTML = data.html;
+              const nextRoot = placeholder.querySelector('#module-root');
+              if (nextRoot && root.parentNode) {
+                root.parentNode.replaceChild(nextRoot, root);
+                attachHandlers();
+              }
+            }
+          } catch (err) {
+            console.error(err);
+            window.alert(err.message || 'Request failed');
+          }
+        });
+      });
+    };
+
+    attachHandlers();
+  })();
+</script>

@@ -114,6 +114,14 @@ async function respondAccounts(app, req, res, data) {
   return res.render('accounts/index', data);
 }
 
+async function respondModuleEdit(app, req, res, data) {
+  if (wantsJson(req)) {
+    const html = await renderEjs(app, 'modules/content', data);
+    return res.json({ html });
+  }
+  return res.render('modules/index', data);
+}
+
 function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }) {
   app.use(express.urlencoded({ extended: true }));
 
@@ -181,13 +189,7 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     const youtubeChannelId = String(req.body?.youtubeChannelId || '').trim();
     const discordGuildId = String(req.body?.discordGuildId || '').trim();
     const allowedChannelIds = parseCsv(req.body?.discordAllowedChannelIds || '');
-    const racingChannelId = String(req.body?.discordRacingChannelId || '').trim();
     const commandPrefix = String(req.body?.commandPrefix || '').trim() || '!';
-    const raceCooldownMs = parseNumber(req.body?.raceCooldownMs);
-    const raceJoinWindowMs = parseNumber(req.body?.raceJoinWindowMs);
-    const cryptoAllowedCoins = parseCsv(req.body?.cryptoAllowedCoins || '');
-    const cryptoStartingCash = parseNumber(req.body?.cryptoStartingCash);
-    const cryptoTtlMs = parseNumber(req.body?.cryptoTtlMs);
 
     try {
       // Account registry holds unique IDs (name/youtube/discord) for validation.
@@ -203,19 +205,9 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
         youtube: {
           enabled: settings.youtube?.enabled ?? true,
         },
-        race: {
-          cooldownMs: raceCooldownMs,
-          joinWindowMs: raceJoinWindowMs,
-        },
         discord: {
           enabled: settings.discord?.enabled ?? true,
           allowedChannelIds,
-          racingChannelId,
-        },
-        crypto: {
-          allowedCoins: cryptoAllowedCoins,
-          startingCash: cryptoStartingCash,
-          coingeckoTtlMs: cryptoTtlMs,
         },
       });
 
@@ -265,6 +257,94 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       return res.redirect('/accounts?message=Account%20deleted');
     } catch (err) {
       return res.redirect(`/accounts?error=${encodeURIComponent(err.message || String(err))}`);
+    }
+  });
+
+  // Module config pages (account-scoped settings)
+  app.get('/accounts/:id/modules/:module', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+    const moduleSlug = String(req.params.module || '').toLowerCase();
+    const moduleName =
+      moduleNames.find((name) => name.toLowerCase() === moduleSlug) || null;
+    if (!moduleName) {
+      return res.status(404).send('Module not found.');
+    }
+    const settings = loadAccountSettings(account.id);
+    return respondModuleEdit(app, req, res, {
+      title: `Edit ${moduleName} - ${account.name}`,
+      active: 'accounts',
+      account,
+      moduleName,
+      settings,
+      message: null,
+      error: null,
+    });
+  });
+
+  app.post('/accounts/:id/modules/:module', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+    const moduleSlug = String(req.params.module || '').toLowerCase();
+    const moduleName =
+      moduleNames.find((name) => name.toLowerCase() === moduleSlug) || null;
+    if (!moduleName) {
+      return res.status(404).send('Module not found.');
+    }
+    const moduleKey = moduleName.toLowerCase();
+
+    try {
+      if (moduleKey === 'racing') {
+        const racingChannelId = String(req.body?.discordRacingChannelId || '').trim();
+        const raceCooldownMs = parseNumber(req.body?.raceCooldownMs);
+        const raceJoinWindowMs = parseNumber(req.body?.raceJoinWindowMs);
+        updateAccountSettings(account.id, {
+          discord: { racingChannelId },
+          race: {
+            cooldownMs: raceCooldownMs,
+            joinWindowMs: raceJoinWindowMs,
+          },
+        });
+      } else if (moduleKey === 'crypto') {
+        const cryptoAllowedCoins = parseCsv(req.body?.cryptoAllowedCoins || '');
+        const cryptoStartingCash = parseNumber(req.body?.cryptoStartingCash);
+        const cryptoTtlMs = parseNumber(req.body?.cryptoTtlMs);
+        updateAccountSettings(account.id, {
+          crypto: {
+            allowedCoins: cryptoAllowedCoins,
+            startingCash: cryptoStartingCash,
+            coingeckoTtlMs: cryptoTtlMs,
+          },
+        });
+      } else {
+        throw new Error('This module does not have editable settings yet.');
+      }
+
+      const settings = loadAccountSettings(account.id);
+      return respondModuleEdit(app, req, res, {
+        title: `Edit ${moduleName} - ${account.name}`,
+        active: 'accounts',
+        account,
+        moduleName,
+        settings,
+        message: `${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)} settings saved.`,
+        error: null,
+      });
+    } catch (err) {
+      const settings = loadAccountSettings(account.id);
+      return res.status(400).render('modules/index', {
+        title: `Edit ${moduleName} - ${account.name}`,
+        active: 'accounts',
+        account,
+        moduleName,
+        settings,
+        message: null,
+        error: err.message || String(err),
+      });
     }
   });
 
