@@ -210,7 +210,9 @@ module.exports = {
         const [amount, fromUnit, toUnit] = ctx.args;
 
         if (!amount || !fromUnit || !toUnit) {
-          return ctx.reply('Usage: !league convert <amount> <fromUnit> <toUnit>');
+          return ctx.reply(
+            `Usage: ${ctx.commandPrefix}league convert <amount> <fromUnit> <toUnit>`
+          );
         }
 
         try {

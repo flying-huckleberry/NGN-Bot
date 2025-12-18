@@ -1,0 +1,410 @@
+<% const liveChatId = runtime?.liveChatId || null; %>
+<% const primed = Boolean(runtime?.primed); %>
+<% const resolved = typeof resolvedMethod === 'string' ? resolvedMethod : null; %>
+<% const target = targetInfo || {}; %>
+<% const discordState = discordStatus?.state || (discordStatus?.enabled ? 'offline' : 'disabled'); %>
+<% const discordConnected = discordState === 'ready'; %>
+<% const disabledSet = new Set((settings?.disabledModules || []).map((name) => String(name || '').toLowerCase())); %>
+<% const allowedChannelsCsv = (settings?.discord?.allowedChannelIds || []).join(','); %>
+<% const cryptoAllowedCsv = (settings?.crypto?.allowedCoins || []).join(','); %>
+
+<div id="cpanel-root" style="position:relative;">
+  <%- include('../partials/flash', { message, error }) %>
+  <h2>Control Panel</h2>
+  <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
+  <p><a href="/accounts" style="color:#93c5fd; text-decoration:none;">← Back to accounts</a></p>
+
+  <div class="state-status" style="margin:12px 0;">
+    Runtime state:
+    <span style="color:<%= stateFile === 'present' ? '#6ee7b7' : '#f87171' %>;">
+      <%= stateFile === 'present' ? 'Present' : 'Missing' %>
+    </span>
+  </div>
+
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+    <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action>
+      <button style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Connect</button>
+    </form>
+
+    <form action="/accounts/<%= account.id %>/cpanel/poll" method="post" data-cpanel-action>
+      <button <%= liveChatId ? '' : 'disabled title="Connect first"' %> style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Poll once</button>
+    </form>
+
+    <form action="/accounts/<%= account.id %>/cpanel/reset" method="post" data-cpanel-action data-confirm="Reset runtime state for this account?">
+      <button style="background:#d9534f; color:#fff; border:1px solid #d43f3a; padding:8px 12px; border-radius:8px; cursor:pointer;">
+        Reset runtime
+      </button>
+    </form>
+  </div>
+
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+    <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action style="flex:1; min-width:260px; background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937;">
+      <label style="display:block; font-size:0.9rem; margin-bottom:6px; color:#cbd5e1;">Connect via Livestream URL</label>
+      <div style="display:flex; gap:8px;">
+        <input name="targetLivestreamUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
+      </div>
+    </form>
+
+    <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action style="flex:1; min-width:260px; background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937;">
+      <label style="display:block; font-size:0.9rem; margin-bottom:6px; color:#cbd5e1;">Connect via Channel ID</label>
+      <div style="display:flex; gap:8px;">
+        <input name="targetChannelId" type="text" placeholder="UCxxxxxxxxxxxx" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
+      </div>
+    </form>
+  </div>
+
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+    <div style="flex:1; min-width:280px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="margin:0; color:#cbd5e1;">YouTube Transport</h3>
+        <span style="font-size:0.85rem; color:<%= primed ? '#22c55e' : '#f87171' %>;">
+          <%= primed ? 'Primed' : 'Not primed' %>
+        </span>
+      </div>
+      <div style="line-height:1.6; font-size:0.9rem; color:#d1d5db;">
+        <div><strong>Target Method:</strong>
+          <% if (resolved) { %>
+            <span style="color:#60a5fa"><%= resolved %></span>
+          <% } else { %>
+            <span style="color:#94a3b8">Not connected</span>
+          <% } %>
+        </div>
+        <div><strong>LiveChat ID:</strong>
+          <% if (liveChatId) { %>
+            <span style="color:#22c55e;overflow-wrap:anywhere"><%= liveChatId %></span>
+          <% } else { %>
+            <span style="color:#94a3b8">None</span>
+          <% } %>
+        </div>
+        <% if (runtime?.youtubeChannelId || account.youtube?.channelId) { %>
+          <div><strong>YT Channel ID:</strong> <span style="color:#22c55e"><%= runtime?.youtubeChannelId || account.youtube?.channelId %></span></div>
+        <% } %>
+      </div>
+      <div style="margin-top:12px; font-size:0.85rem; color:#94a3b8;">
+        <% if (target.url) { %><div>URL: <%= target.url %></div><% } %>
+        <% if (target.videoId) { %><div>Video ID: <%= target.videoId %></div><% } %>
+        <% if (target.channelId) { %><div>Channel ID: <%= target.channelId %></div><% } %>
+        <% if (target.titleMatch) { %><div>Title Match: "<%= target.titleMatch %>"</div><% } %>
+      </div>
+      <% if (lastPoll) { %>
+        <div style="line-height:1.6; font-size:0.9rem; margin-top:12px;">
+          <strong>Last Poll:</strong> Received: <strong><%= lastPoll.received %></strong>; Handled: <strong><%= lastPoll.handled %></strong>
+        </div>
+      <% } %>
+    </div>
+
+    <div style="flex:1; min-width:280px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="margin:0; color:#cbd5e1;">Discord Transport</h3>
+        <span style="font-size:0.85rem; color:<%= discordConnected ? '#22c55e' : '#fbbf24' %>;">
+          <%= discordConnected ? 'Connected' : discordState %>
+        </span>
+      </div>
+      <div style="font-size:0.9rem; line-height:1.6; color:#d1d5db;">
+        <div><strong>Status:</strong>
+          <% if (discordConnected) { %>
+            <span style="color:#22c55e;">Ready</span>
+          <% } else { %>
+            <span style="color:#fbbf24;"><%= discordState %></span>
+          <% } %>
+        </div>
+        <% if (discordStatus?.username) { %>
+          <div><strong>Bot:</strong> <%= discordStatus.username %></div>
+        <% } %>
+        <% if (discordStatus?.readyAt) { %>
+          <div><strong>Ready at:</strong> <%= discordStatus.readyAt %></div>
+        <% } %>
+        <% if (discordStatus?.lastError) { %>
+          <div style="color:#b91c1c;"><strong>Last error:</strong> <%= discordStatus.lastError %></div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <% if (quota) { %>
+    <div style="background:#0b1224; padding:16px; border-radius:12px; margin-bottom:16px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+      <h3 style="margin-top:0;">YouTube Quota (Est.)</h3>
+      <p style="font-size:0.9rem; color:#d1d5db;">
+        Used: <strong><%= quota.used %></strong> / <%= quota.dailyLimit %> units (<%= quota.percentUsed %>%)
+      </p>
+      <div style="
+        position:relative;
+        width:100%;
+        height:12px;
+        border-radius:999px;
+        background:#111827;
+        overflow:hidden;
+        margin:10px 0 6px;
+        border:1px solid #1f2937;
+      ">
+        <div style="
+          width:<%= quota.percentUsed %>%;
+          height:100%;
+          background:linear-gradient(90deg, #22c55e, #16a34a);
+          transition:width 0.2s ease-out;
+        "></div>
+      </div>
+      <p style="font-size:0.8rem; color:#9ca3af; margin:0;">
+        Resets at midnight Pacific. Last reset: <%= quota.lastResetPst || 'unknown' %> (PT)
+      </p>
+    </div>
+  <% } %>
+
+  <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Account Details</h3>
+    <form action="/accounts/<%= account.id %>" method="post" data-cpanel-action style="display:grid; gap:12px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Account Name
+          <input name="name" type="text" value="<%= account.name %>" required style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          YouTube Channel ID
+          <input name="youtubeChannelId" type="text" value="<%= account.youtube?.channelId || '' %>" placeholder="UCxxxxxxxxxxxx" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Discord Guild ID
+          <input name="discordGuildId" type="text" value="<%= account.discord?.guildId || '' %>" placeholder="1234567890" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Discord Allowed Channel IDs (CSV)
+          <input name="discordAllowedChannelIds" type="text" value="<%= allowedChannelsCsv %>" placeholder="123,456" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Discord Racing Channel ID
+          <input name="discordRacingChannelId" type="text" value="<%= settings?.discord?.racingChannelId || '' %>" placeholder="1234567890" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Command Prefix
+          <input name="commandPrefix" type="text" value="<%= settings?.commandPrefix || '!' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Race Cooldown (ms)
+          <input name="raceCooldownMs" type="number" value="<%= settings?.race?.cooldownMs || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Race Join Window (ms)
+          <input name="raceJoinWindowMs" type="number" value="<%= settings?.race?.joinWindowMs || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Crypto Allowed Coins (CSV)
+          <input name="cryptoAllowedCoins" type="text" value="<%= cryptoAllowedCsv %>" placeholder="BTC,ETH" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Crypto Starting Cash
+          <input name="cryptoStartingCash" type="number" value="<%= settings?.crypto?.startingCash || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          CoinGecko TTL (ms)
+          <input name="cryptoTtlMs" type="number" value="<%= settings?.crypto?.coingeckoTtlMs || '' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save Settings</button>
+      </div>
+    </form>
+    <form action="/accounts/<%= account.id %>/delete" method="post" onsubmit="return confirm('Delete this account and all associated state?');" style="margin-top:12px;">
+      <button type="submit" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete Account</button>
+    </form>
+  </div>
+
+  <% if (modules && modules.length) { %>
+    <div style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px;">
+      <h3 style="margin-top:0; color:#cbd5e1;">Module Toggles</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+        <% modules.forEach((name) => { %>
+          <% const enabled = !disabledSet.has(String(name || '').toLowerCase()); %>
+          <label data-module-toggle-wrapper style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb;">
+            <span style="font-size:0.95rem;"><%= name %></span>
+            <span style="position:relative; width:46px; height:24px; display:inline-block;">
+              <input
+                type="checkbox"
+                data-module-toggle="<%= name %>"
+                <%= enabled ? 'checked' : '' %>
+                style="position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;"
+              />
+              <span data-toggle-track style="
+                position:absolute;
+                inset:0;
+                background:<%= enabled ? '#22c55e' : '#1f2937' %>;
+                border:1px solid #334155;
+                border-radius:999px;
+                transition:all 0.2s ease;
+              "></span>
+              <span data-toggle-thumb style="
+                position:absolute;
+                top:2px;
+                left:<%= enabled ? '24px' : '2px' %>;
+                width:20px;
+                height:20px;
+                background:#0b1224;
+                border:1px solid #475569;
+                border-radius:999px;
+                box-shadow:0 1px 4px rgba(0,0,0,0.4);
+                transition:all 0.2s ease;
+              "></span>
+            </span>
+          </label>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
+  <h3>Raw Status</h3>
+  <pre><%= JSON.stringify({ account, settings, runtime, quota }, null, 2) %></pre>
+</div>
+
+<script>
+  (function () {
+    const attachHandlers = () => {
+      const root = document.getElementById('cpanel-root');
+      if (!root) return;
+
+      const flash = document.getElementById('cpanel-flash');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.3s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 300);
+        }, 5000);
+      }
+      const flashError = document.getElementById('cpanel-flash-error');
+      if (flashError) {
+        setTimeout(() => {
+          flashError.style.transition = 'opacity 0.3s ease';
+          flashError.style.opacity = '0';
+          setTimeout(() => flashError.remove(), 300);
+        }, 5000);
+      }
+
+      const bindModuleToggles = () => {
+        root.querySelectorAll('input[data-module-toggle]').forEach((input) => {
+          input.addEventListener('change', async (event) => {
+            const target = event.currentTarget;
+            const moduleName = target.dataset.moduleToggle;
+            if (!moduleName) return;
+            const desired = target.checked;
+            const previous = !desired;
+            const wrapper = target.closest('[data-module-toggle-wrapper]');
+            const track = wrapper?.querySelector('[data-toggle-track]');
+            const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+            const applyVisual = (on) => {
+              if (track) {
+                track.style.background = on ? '#22c55e' : '#1f2937';
+              }
+              if (thumb) {
+                thumb.style.left = on ? '24px' : '2px';
+              }
+            };
+
+            applyVisual(desired);
+
+            const body = new URLSearchParams();
+            body.append('module', moduleName);
+            body.append('enabled', String(desired));
+
+            target.disabled = true;
+            try {
+              const res = await fetch(`/accounts/<%= account.id %>/cpanel/modules`, {
+                method: 'POST',
+                headers: {
+                  Accept: 'application/json',
+                  'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body,
+              });
+              if (!res.ok) throw new Error('Request failed: ' + res.status);
+              const data = await res.json();
+              if (data?.html) {
+                const placeholder = document.createElement('div');
+                placeholder.innerHTML = data.html;
+                const nextRoot = placeholder.querySelector('#cpanel-root');
+                if (nextRoot && root.parentNode) {
+                  root.parentNode.replaceChild(nextRoot, root);
+                  attachHandlers();
+                }
+              }
+            } catch (err) {
+              console.error(err);
+              target.checked = previous;
+              applyVisual(previous);
+              window.alert(err.message || 'Request failed');
+            } finally {
+              target.disabled = false;
+            }
+          });
+        });
+      };
+
+      const setLoading = (isLoading) => {
+        root.querySelectorAll('button').forEach((btn) => {
+          const alreadyDisabled = btn.dataset.originalDisabled === 'true';
+          if (isLoading) {
+            btn.dataset.originalDisabled = btn.hasAttribute('disabled') ? 'true' : 'false';
+            btn.disabled = true;
+            if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+            btn.textContent = 'Working...';
+          } else {
+            if (!alreadyDisabled) btn.disabled = false;
+            if (btn.dataset.originalText) {
+              btn.textContent = btn.dataset.originalText;
+              delete btn.dataset.originalText;
+            }
+          }
+        });
+      };
+
+      root.querySelectorAll('form[data-cpanel-action]').forEach((form) => {
+        form.addEventListener(
+          'submit',
+          async (event) => {
+            event.preventDefault();
+            const confirmMsg = form.dataset.confirm;
+            if (confirmMsg && !window.confirm(confirmMsg)) return;
+
+            const formData = new FormData(form);
+            const body = new URLSearchParams();
+            formData.forEach((value, key) => {
+              body.append(key, value);
+            });
+
+            setLoading(true);
+            try {
+              const res = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                  Accept: 'application/json',
+                  'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body,
+              });
+              if (!res.ok) throw new Error('Request failed: ' + res.status);
+              const data = await res.json();
+              if (data?.html) {
+                const placeholder = document.createElement('div');
+                placeholder.innerHTML = data.html;
+                const nextRoot = placeholder.querySelector('#cpanel-root');
+                if (nextRoot && root.parentNode) {
+                  root.parentNode.replaceChild(nextRoot, root);
+                  attachHandlers();
+                }
+              }
+            } catch (err) {
+              console.error(err);
+              window.alert(err.message || 'Request failed');
+            } finally {
+              setLoading(false);
+            }
+          },
+          { once: true }
+        );
+      });
+
+      bindModuleToggles();
+    };
+
+    attachHandlers();
+  })();
+</script>

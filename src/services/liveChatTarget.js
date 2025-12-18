@@ -35,9 +35,20 @@ const PRIME_ESTIMATE_UNITS = 5;
  *
  * Throws with a helpful message if none is set or if resolution fails.
  */
-async function resolveTargetLiveChatId(overrides = {}) {
+async function resolveTargetLiveChatId(overrides = {}, config = {}) {
+  const defaults = {
+    livestreamUrl: TARGET_LIVESTREAM_URL,
+    channelId: TARGET_CHANNEL_ID,
+    videoId: process.env.TARGET_VIDEO_ID,
+    titleMatch: TARGET_TITLE_MATCH,
+  };
+  const merged = { ...defaults, ...(config || {}) };
+
   const overrideUrl = (overrides.livestreamUrl || '').trim();
   const overrideChannelId = (overrides.channelId || '').trim();
+  const overrideVideoId = (overrides.videoId || '').trim();
+  const overrideTitleMatch =
+    typeof overrides.titleMatch === 'string' ? overrides.titleMatch : merged.titleMatch;
   let result;
   let method;
   let targetInfo = {};
@@ -48,36 +59,41 @@ async function resolveTargetLiveChatId(overrides = {}) {
     method = 'Livestream URL (override)';
     targetInfo = { url: overrideUrl, videoId: result?.videoId };
     discoverCost = 1;
+  } else if (overrideVideoId) {
+    result = await getLiveChatIdForVideo(overrideVideoId);
+    method = 'Video ID (override)';
+    targetInfo = { videoId: overrideVideoId };
+    discoverCost = 1;
   } else if (overrideChannelId) {
     result = await getLiveChatIdForChannel(
       overrideChannelId,
-      (TARGET_TITLE_MATCH || '').trim()
+      (overrideTitleMatch || '').trim()
     );
     method = 'Channel ID (override)';
     targetInfo = {
       channelId: overrideChannelId,
-      titleMatch: TARGET_TITLE_MATCH || '',
+      titleMatch: overrideTitleMatch || '',
     };
     discoverCost = 101;
-  } else if (TARGET_LIVESTREAM_URL) {
-    result = await getLiveChatIdFromUrl(TARGET_LIVESTREAM_URL);
+  } else if (merged.livestreamUrl) {
+    result = await getLiveChatIdFromUrl(merged.livestreamUrl);
     method = 'Livestream URL';
-    targetInfo = { url: TARGET_LIVESTREAM_URL, videoId: result?.videoId };
+    targetInfo = { url: merged.livestreamUrl, videoId: result?.videoId };
     discoverCost = 1;
-  } else if (process.env.TARGET_VIDEO_ID) {
-    result = await getLiveChatIdForVideo(process.env.TARGET_VIDEO_ID);
+  } else if (merged.videoId) {
+    result = await getLiveChatIdForVideo(merged.videoId);
     method = 'Video ID';
-    targetInfo = { videoId: process.env.TARGET_VIDEO_ID };
+    targetInfo = { videoId: merged.videoId };
     discoverCost = 1;
-  } else if (TARGET_CHANNEL_ID) {
+  } else if (merged.channelId) {
     result = await getLiveChatIdForChannel(
-      TARGET_CHANNEL_ID,
-      (TARGET_TITLE_MATCH || '').trim()
+      merged.channelId,
+      (merged.titleMatch || '').trim()
     );
     method = 'Channel ID (title match optional)';
     targetInfo = {
-      channelId: TARGET_CHANNEL_ID,
-      titleMatch: TARGET_TITLE_MATCH || '',
+      channelId: merged.channelId,
+      titleMatch: merged.titleMatch || '',
     };
     discoverCost = 101;
   } else {
@@ -94,7 +110,7 @@ async function resolveTargetLiveChatId(overrides = {}) {
 
   return {
     liveChatId: result.liveChatId,
-    channelId: result.channelId || overrideChannelId || TARGET_CHANNEL_ID || null,
+    channelId: result.channelId || overrideChannelId || merged.channelId || null,
     method,
     targetInfo,
     estimatedUnits,

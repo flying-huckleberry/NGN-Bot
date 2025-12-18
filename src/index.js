@@ -1,7 +1,7 @@
-// src/index.js
+﻿// src/index.js
 require('dotenv').config();
 
-// ── startup sanity: ensure we're launched from project root ─────────
+// â”€â”€ startup sanity: ensure we're launched from project root â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const fs = require('fs');
 const path = require('path');
 const {
@@ -18,7 +18,7 @@ function safeRequire(label, modulePath) {
     return require(modulePath);
   } catch (err) {
     logger.error(
-      `❌ Failed to load ${label} from ${modulePath}: ${err.stack || err.message || err}`
+      `âŒ Failed to load ${label} from ${modulePath}: ${err.stack || err.message || err}`
     );
     throw err;
   }
@@ -26,12 +26,12 @@ function safeRequire(label, modulePath) {
 
 const rootPkg = path.join(ROOT_DIR, 'package.json');
 if (!fs.existsSync(rootPkg)) {
-  logger.error(`❌ Startup error: expected to find package.json in ROOT_DIR (${ROOT_DIR})`);
+  logger.error(`âŒ Startup error: expected to find package.json in ROOT_DIR (${ROOT_DIR})`);
   logger.error('Please run this script from the project root directory.');
   process.exit(1);
 }
 
-// ── deps ─────────────────────────────────────────────────────────────
+// â”€â”€ deps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const express = require('express');
 const open = (...args) => import('open').then((m) => m.default(...args));
 
@@ -52,7 +52,7 @@ const league = safeRequire('League service', './services/league');
 
 // HTTP / routes
 const { mountAuthRoutes } = safeRequire('Auth routes', './server/auth');
-const { registerDevRoutes } = safeRequire('Dev routes', './routes/dev');
+const { registerAccountRoutes } = safeRequire('Account routes', './routes/accounts');
 const { registerPlaygroundRoutes } = safeRequire(
   'Playground routes',
   './routes/playground'
@@ -67,24 +67,33 @@ const { createRouter } = safeRequire('Router core', './core/router');
 const { loadModules } = safeRequire('Module loader', './core/loader');
 const { buildContextFactory } = safeRequire('Context factory', './core/context');
 
-// Global state
-const g = safeRequire('Global state g', './state/g');
+const { migrateDevStateToDefaultAccount } = safeRequire(
+  'Account migration',
+  './state/accountMigration'
+);
+const { listAccounts, getAccountById } = safeRequire('Accounts repo', './state/accountsRepo');
+const { loadAccountRuntime, saveAccountRuntime } = safeRequire(
+  'Account runtime',
+  './state/accountRuntime'
+);
+const { loadAccountSettings } = safeRequire(
+  'Account settings',
+  './state/accountSettings'
+);
 
-// ── app bootstrap ───────────────────────────────────────────────────
+// â”€â”€ app bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 (async () => {
   try {
     const app = express();
+    app.set('view engine', 'ejs');
+    app.set('views', path.join(__dirname, 'views'));
+    app.locals.mode = MODE;
+
+    migrateDevStateToDefaultAccount();
 
     // 1) Load all command modules and build the dispatcher
     const modulesDir = path.join(__dirname, 'modules');
     const registry = loadModules(modulesDir);
-    // Attach __disabled flags based on current g.disabledModules so help filtering works
-    const disabledSet = new Set(
-      (g.disabledModules || []).map((name) => String(name || '').toLowerCase())
-    );
-    Object.values(registry.modules || {}).forEach((mod) => {
-      mod.__disabled = disabledSet.has(String(mod.name || '').toLowerCase());
-    });
 
     const buildContext = buildContextFactory({
       youtube,
@@ -92,9 +101,9 @@ const g = safeRequire('Global state g', './state/g');
       league,
     });
 
-    const isModuleDisabled = (moduleName, transport) => {
+    const isModuleDisabled = (moduleName, transport, platformMeta, accountSettings) => {
       if (transport?.type === 'playground') return false;
-      const disabled = g.disabledModules || [];
+      const disabled = accountSettings?.disabledModules || [];
       const lower = String(moduleName || '').toLowerCase();
       return disabled.some((name) => String(name || '').toLowerCase() === lower);
     };
@@ -104,10 +113,10 @@ const g = safeRequire('Global state g', './state/g');
     // 2) OAuth routes (save tokens, then startBot)
     mountAuthRoutes(app, { onAuthed: startBot });
 
-    // 3) Dev panel routes
-    registerDevRoutes(app, {
-      pollOnce: (liveChatId) => pollOnceWithDispatch(liveChatId, dispatch),
-      commands: {},
+    // 3) Account control panel routes
+    registerAccountRoutes(app, {
+      pollOnce: (accountId, liveChatId) =>
+        pollOnceWithDispatch(accountId, liveChatId, dispatch),
       getDiscordStatus,
       modules: registry.modules,
     });
@@ -132,7 +141,7 @@ const g = safeRequire('Global state g', './state/g');
       }
     });
 
-    // ── helpers ───────────────────────────────────────────────────────
+    // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     // Poll exactly one page and dispatch each message through the module router.
     function createYoutubeTransport(liveChatId) {
@@ -145,14 +154,18 @@ const g = safeRequire('Global state g', './state/g');
       };
     }
 
-    async function pollOnceWithDispatch(liveChatId, dispatchFn) {
+    async function pollOnceWithDispatch(accountId, liveChatId, dispatchFn) {
+      const account = getAccountById(accountId);
+      if (!account) throw new Error('Account not found.');
+      const runtime = loadAccountRuntime(accountId);
+      const settings = loadAccountSettings(accountId);
       const youtubeTransport = createYoutubeTransport(liveChatId);
       let res;
       try {
         res = await youtube.liveChatMessages.list({
           liveChatId,
           part: ['snippet', 'authorDetails'],
-          pageToken: g.nextPageToken || undefined,
+          pageToken: runtime.nextPageToken || undefined,
           maxResults: 200,
         });
       } catch (err) {
@@ -166,7 +179,7 @@ const g = safeRequire('Global state g', './state/g');
             pageToken: newToken || undefined,
             maxResults: 200,
           });
-          g.nextPageToken = newToken || g.nextPageToken;
+          runtime.nextPageToken = newToken || runtime.nextPageToken;
         } else {
           throw err;
         }
@@ -186,12 +199,21 @@ const g = safeRequire('Global state g', './state/g');
           msg,
           liveChatId,
           transport: youtubeTransport,
-          platformMeta: { youtube: { channelId: g.youtubeChannelId } },
+          platformMeta: {
+            youtube: {
+              channelId: runtime.youtubeChannelId || account.youtube?.channelId || null,
+            },
+          },
+          accountId: account.id,
+          accountSettings: settings,
+          account,
+          accountRuntime: runtime,
         });
         handled++;
       }
 
-      g.nextPageToken = res.data.nextPageToken || g.nextPageToken;
+      runtime.nextPageToken = res.data.nextPageToken || runtime.nextPageToken;
+      saveAccountRuntime(accountId, runtime);
 
       return {
         ok: true,
@@ -204,12 +226,17 @@ const g = safeRequire('Global state g', './state/g');
     }
 
     // Simple continuous loop that uses the router (optional for PROD; DEV uses pollOnce)
-    async function pollLoop(liveChatId) {
+    async function pollLoop(accountId, liveChatId) {
+      const account = getAccountById(accountId);
+      if (!account) return;
+      const runtime = loadAccountRuntime(accountId);
+      const settings = loadAccountSettings(accountId);
+
       try {
         const res = await youtube.liveChatMessages.list({
           liveChatId,
           part: ['snippet', 'authorDetails'],
-          pageToken: g.nextPageToken || undefined,
+          pageToken: runtime.nextPageToken || undefined,
           maxResults: 200,
         });
 
@@ -224,43 +251,82 @@ const g = safeRequire('Global state g', './state/g');
             msg,
             liveChatId,
             transport: createYoutubeTransport(liveChatId),
-            platformMeta: { youtube: { channelId: g.youtubeChannelId } },
+            platformMeta: {
+              youtube: {
+                channelId: runtime.youtubeChannelId || account.youtube?.channelId || null,
+              },
+            },
+            accountId: account.id,
+            accountSettings: settings,
+            account,
+            accountRuntime: runtime,
           });
         }
 
-        g.nextPageToken = res.data.nextPageToken || g.nextPageToken;
+        runtime.nextPageToken = res.data.nextPageToken || runtime.nextPageToken;
+        saveAccountRuntime(accountId, runtime);
         const delay =
           res.data.pollingIntervalMillis ??
           (Number.isFinite(+POLLING_FALLBACK_MS) ? +POLLING_FALLBACK_MS : 2000);
-        setTimeout(() => pollLoop(liveChatId), delay);
+        setTimeout(() => pollLoop(accountId, liveChatId), delay);
       } catch (err) {
         logger.error('Polling error:', err?.errors?.[0] || err.message || err);
-        setTimeout(() => pollLoop(liveChatId), 5000);
+        setTimeout(() => pollLoop(accountId, liveChatId), 5000);
       }
     }
 
-    // Start in PROD (DEV returns early to use the /dev panel)
+    async function startAccountBot(account) {
+      if (!account?.youtube?.channelId) {
+        logger.warn(`Skipping account "${account?.name || account?.id}": no YouTube channel ID.`);
+        return;
+      }
+
+      const runtime = loadAccountRuntime(account.id);
+      const { liveChatId, method, channelId } = await resolveTargetLiveChatId(
+        {},
+        {
+          channelId: account.youtube.channelId,
+          livestreamUrl: '',
+          videoId: '',
+        }
+      );
+
+      const token = await primeChat(liveChatId);
+      runtime.liveChatId = liveChatId;
+      runtime.nextPageToken = token;
+      runtime.primed = true;
+      runtime.youtubeChannelId = channelId || account.youtube.channelId || null;
+      saveAccountRuntime(account.id, runtime);
+
+      const interval = Number(POLLING_FALLBACK_MS || 10000);
+      logger.info(
+        `PROD: ${account.name} connected via ${method || 'unknown method'} - listening roughly every ${interval}ms`
+      );
+
+      pollLoop(account.id, liveChatId);
+    }
+
+    // Start in PROD (DEV returns early to use the /accounts panel)
     async function startBot() {
       try {
         if (MODE === 'dev') {
-          logger.info('✅ Running in DEV mode — open / for manual connect & poll');
+          logger.info('Running in DEV mode - open /accounts for manual control');
           return;
         }
 
-        const { liveChatId, method, channelId } = await resolveTargetLiveChatId();
+        const accounts = listAccounts();
+        if (!accounts.length) {
+          logger.warn('No accounts configured. Add one at /accounts.');
+          return;
+        }
 
-        const token = await primeChat(liveChatId);
-        g.liveChatId = liveChatId;
-        g.nextPageToken = token;
-        g.primed = true;
-        g.youtubeChannelId = channelId || null;
-
-        const interval = Number(POLLING_FALLBACK_MS || 10000);
-        logger.info(
-          `✅ PROD: Connected via ${method || 'unknown method'} — Listening roughly every ${interval}ms…`
-        );
-
-        pollLoop(liveChatId);
+        for (const account of accounts) {
+          try {
+            await startAccountBot(account);
+          } catch (err) {
+            logger.error('Failed to start account ' + account.name + ': ' + (err?.message || err));
+          }
+        }
       } catch (err) {
         logger.error(err.message || err);
         process.exit(1);
@@ -268,7 +334,7 @@ const g = safeRequire('Global state g', './state/g');
     }
   } catch (err) {
     logger.error(
-      `❌ Fatal bootstrap error in index.js: ${err.stack || err.message || err}`
+      `âŒ Fatal bootstrap error in index.js: ${err.stack || err.message || err}`
     );
     process.exit(1);
   }

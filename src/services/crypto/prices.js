@@ -1,10 +1,7 @@
 // src/services/crypto/prices.js
 // CoinGecko price fetcher with simple TTL caching.
 const { logger } = require('../../utils/logger');
-const {
-  COINGECKO_TTL_MS,
-  CRYPTO_ALLOWED_COINS,
-} = require('../../config/env');
+const env = require('../../config/env');
 
 // Map tickers to CoinGecko IDs. Unknown symbols fall back to lowercase symbol as ID.
 const DEFAULT_IDS = {
@@ -19,9 +16,6 @@ function resolveCoinGeckoId(symbol) {
   const upper = symbol.toUpperCase();
   return DEFAULT_IDS[upper] || upper.toLowerCase();
 }
-
-// Normalize allowlist to uppercase symbols
-const ALLOWED = new Set((CRYPTO_ALLOWED_COINS || []).map((c) => c.toUpperCase()));
 
 const cache = new Map(); // symbol -> { price, ts }
 
@@ -59,14 +53,29 @@ async function fetchPrices(symbols) {
   }
 }
 
-async function getPrice(symbol) {
+function normalizeAllowedCoins(allowedCoins) {
+  if (Array.isArray(allowedCoins) && allowedCoins.length > 0) {
+    return new Set(allowedCoins.map((c) => String(c || '').toUpperCase()));
+  }
+  return new Set((env.CRYPTO_ALLOWED_COINS || []).map((c) => String(c || '').toUpperCase()));
+}
+
+function resolveTtlMs(ttlMs) {
+  if (ttlMs === 0) return 0;
+  if (Number.isFinite(Number(ttlMs))) return Number(ttlMs);
+  return Number(env.COINGECKO_TTL_MS) || 0;
+}
+
+async function getPrice(symbol, options = {}) {
   const upper = symbol.toUpperCase();
-  if (!ALLOWED.has(upper)) {
+  const allowed = normalizeAllowedCoins(options.allowedCoins);
+  if (!allowed.has(upper)) {
     return { ok: false, error: 'not_allowed' };
   }
 
   const cached = cache.get(upper);
-  if (isFresh(cached, COINGECKO_TTL_MS)) {
+  const ttlMs = resolveTtlMs(options.ttlMs);
+  if (isFresh(cached, ttlMs)) {
     return { ok: true, symbol: upper, price: cached.price };
   }
 
@@ -79,14 +88,16 @@ async function getPrice(symbol) {
   return { ok: true, symbol: upper, price };
 }
 
-async function getPrices(symbols) {
-  const upperSyms = symbols.map((s) => s.toUpperCase()).filter((s) => ALLOWED.has(s));
+async function getPrices(symbols, options = {}) {
+  const allowed = normalizeAllowedCoins(options.allowedCoins);
+  const upperSyms = symbols.map((s) => s.toUpperCase()).filter((s) => allowed.has(s));
   const result = {};
   const toFetch = [];
+  const ttlMs = resolveTtlMs(options.ttlMs);
 
   upperSyms.forEach((sym) => {
     const cached = cache.get(sym);
-    if (isFresh(cached, COINGECKO_TTL_MS)) {
+    if (isFresh(cached, ttlMs)) {
       result[sym] = cached.price;
     } else {
       toFetch.push(sym);
@@ -107,5 +118,5 @@ async function getPrices(symbols) {
 module.exports = {
   getPrice,
   getPrices,
-  ALLOWED_COINS: ALLOWED,
+  normalizeAllowedCoins,
 };

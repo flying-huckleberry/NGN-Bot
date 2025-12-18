@@ -1,0 +1,64 @@
+<%- include('../partials/layout-start', { title, active: 'accounts', mode }) %>
+<%- include('../partials/flash', { message, error }) %>
+
+<h2>Accounts</h2>
+<p>Manage account integrations and open each control panel.</p>
+
+<div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:16px;">
+  <h3 style="margin-top:0; color:#cbd5e1;">Create New Account</h3>
+  <form action="/accounts" method="post" style="display:flex; gap:10px; flex-wrap:wrap;">
+    <input
+      name="name"
+      type="text"
+      placeholder="Account name"
+      required
+      style="flex:1; min-width:220px; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;"
+    />
+    <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">
+      Add Account
+    </button>
+  </form>
+</div>
+
+<% if (!accounts || accounts.length === 0) { %>
+  <p style="color:#94a3b8;">No accounts yet. Create your first account above.</p>
+<% } else { %>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+    <% accounts.forEach((acc) => { %>
+      <div style="background:#0b1224; padding:14px; border-radius:12px; border:1px solid #1f2937;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <h3 style="margin:0; color:#e5e7eb; font-size:1rem;"><%= acc.name %></h3>
+          <a href="/accounts/<%= acc.id %>/cpanel" style="font-size:0.85rem; color:#93c5fd; text-decoration:none;">Open Panel</a>
+        </div>
+        <div style="margin-top:8px; font-size:0.85rem; color:#9ca3af; line-height:1.5;">
+          <div><strong>ID:</strong> <code><%= acc.id %></code></div>
+          <div><strong>YouTube Channel:</strong> <%= acc.youtube?.channelId || 'Not set' %></div>
+          <div><strong>Discord Guild:</strong> <%= acc.discord?.guildId || 'Not set' %></div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<script>
+  (function () {
+    const flash = document.getElementById('cpanel-flash');
+    if (flash) {
+      setTimeout(() => {
+        flash.style.transition = 'opacity 0.3s ease';
+        flash.style.opacity = '0';
+        setTimeout(() => flash.remove(), 300);
+      }, 4000);
+    }
+    const flashError = document.getElementById('cpanel-flash-error');
+    if (flashError) {
+      setTimeout(() => {
+        flashError.style.transition = 'opacity 0.3s ease';
+        flashError.style.opacity = '0';
+        setTimeout(() => flashError.remove(), 300);
+      }, 5000);
+    }
+  })();
+</script>
+
+<%- include('../partials/layout-end') %>

@@ -68,7 +68,7 @@ function mountAuthRoutes(app, { onAuthed, log = logger.log } = {}) {
 
         <p style="margin-top:16px; font-size:0.9rem; color:#9ca3af;">
           You can close this tab and return to the terminal, or go back to the
-          <a href="/" style="color:#60a5fa; text-decoration:underline;">Dev Panel</a>.
+          <a href="/accounts" style="color:#60a5fa; text-decoration:underline;">Accounts</a>.
         </p>
       `;
 

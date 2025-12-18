@@ -2,10 +2,7 @@
 // CoinGecko-backed paper trading mini-game (scoped per transport).
 
 const { ownerOnly } = require('../../utils/permissions');
-const {
-  MAX_CHARS,
-  CRYPTO_ALLOWED_COINS,
-} = require('../../config/env');
+const env = require('../../config/env');
 const {
   ensurePlayer,
   getPlayer,
@@ -16,10 +13,26 @@ const {
 const {
   getPrice,
   getPrices,
-  ALLOWED_COINS,
+  normalizeAllowedCoins,
 } = require('../../services/crypto/prices');
 
-const DEFAULT_MAX_CHARS = Number(MAX_CHARS || 190);
+function getMaxChars(ctx) {
+  const maxChars = Number(ctx?.env?.MAX_CHARS ?? env.MAX_CHARS);
+  return Number.isFinite(maxChars) ? maxChars : 190;
+}
+
+function getCryptoSettings(ctx) {
+  const fallback = {
+    allowedCoins: env.CRYPTO_ALLOWED_COINS || [],
+    startingCash: env.CRYPTO_STARTING_CASH || 1000,
+    coingeckoTtlMs: env.COINGECKO_TTL_MS || 0,
+  };
+  return {
+    allowedCoins: ctx?.settings?.crypto?.allowedCoins || fallback.allowedCoins,
+    startingCash: ctx?.settings?.crypto?.startingCash ?? fallback.startingCash,
+    coingeckoTtlMs: ctx?.settings?.crypto?.coingeckoTtlMs ?? fallback.coingeckoTtlMs,
+  };
+}
 
 function getScopeKey(ctx) {
   return ctx.stateScope || 'global';
@@ -56,10 +69,11 @@ function getPlayerName(ctx) {
   );
 }
 
-function clamp(text) {
+function clamp(ctx, text) {
   if (!text) return '';
-  if (text.length <= DEFAULT_MAX_CHARS) return text;
-  return `${text.slice(0, DEFAULT_MAX_CHARS - 3)}...`;
+  const maxChars = getMaxChars(ctx);
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars - 3)}...`;
 }
 
 function roundCents(value) {
@@ -85,8 +99,8 @@ function parseAmount(raw) {
   return n;
 }
 
-function allowedListText() {
-  const list = Array.from(ALLOWED_COINS || []);
+function allowedListText(allowed) {
+  const list = Array.from(allowed || []);
   return list.join(', ');
 }
 
@@ -102,16 +116,24 @@ function isAdminOrOwner(ctx) {
   return false;
 }
 
-async function fetchSinglePrice(symbol) {
-  const res = await getPrice(symbol);
+async function fetchSinglePrice(symbol, settings) {
+  const res = await getPrice(symbol, {
+    allowedCoins: settings.allowedCoins,
+    ttlMs: settings.coingeckoTtlMs,
+  });
   if (!res.ok) return null;
   return res.price;
 }
 
-async function computePortfolio(player) {
+async function computePortfolio(player, settings) {
   const holdings = player.holdings || {};
   const symbols = Object.keys(holdings).filter((s) => holdings[s] > 0);
-  const prices = symbols.length ? await getPrices(symbols) : {};
+  const prices = symbols.length
+    ? await getPrices(symbols, {
+        allowedCoins: settings.allowedCoins,
+        ttlMs: settings.coingeckoTtlMs,
+      })
+    : {};
   let holdingsValue = 0;
   symbols.forEach((sym) => {
     const price = prices[sym.toUpperCase()];
@@ -138,35 +160,37 @@ module.exports = {
       aliases: [],
       async run(ctx) {
         const args = ctx.args || [];
+        const settings = getCryptoSettings(ctx);
+        const allowed = normalizeAllowedCoins(settings.allowedCoins);
         if (args.length < 2) {
-          return ctx.reply(clamp('Usage: !buy <symbol> <usd>'));
+          return ctx.reply(clamp(ctx, `Usage: ${ctx.commandPrefix}buy <symbol> <usd>`));
         }
 
         const symbol = args[0].toUpperCase();
         const amount = parseAmount(args[1]);
 
-        if (!ALLOWED_COINS.has(symbol)) {
-          return ctx.reply(clamp(`Unsupported coin. Allowed: ${allowedListText()}`));
+        if (!allowed.has(symbol)) {
+          return ctx.reply(clamp(ctx, `Unsupported coin. Allowed: ${allowedListText(allowed)}`));
         }
         if (amount === null || amount <= 0) {
-          return ctx.reply(clamp('Amount must be greater than 0.'));
+          return ctx.reply(clamp(ctx, 'Amount must be greater than 0.'));
         }
 
         const scopeKey = getScopeKey(ctx);
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(scopeKey, userId, userName);
+        const player = ensurePlayer(scopeKey, userId, userName, settings.startingCash);
 
-        const price = await fetchSinglePrice(symbol);
+        const price = await fetchSinglePrice(symbol, settings);
         if (price === null) {
-          return ctx.reply(clamp(`Price unavailable for ${symbol}. Try again later.`));
+          return ctx.reply(clamp(ctx, `Price unavailable for ${symbol}. Try again later.`));
         }
 
         const cost = roundCents(amount);
         if ((player.cash || 0) < cost) {
           const mention = ctx.mention(userId, userName);
           return ctx.reply(
-            clamp(`${mention}, insufficient cash. You have $${formatMoney(player.cash || 0)}.`)
+            clamp(ctx, `${mention}, insufficient cash. You have $${formatMoney(player.cash || 0)}.`)
           );
         }
 
@@ -180,6 +204,7 @@ module.exports = {
         const mention = ctx.mention(userId, userName);
         return ctx.reply(
           clamp(
+            ctx,
             `${mention} bought ${formatHoldings(qty)} ${symbol} for $${formatMoney(cost)} @ $${formatMoney(
               price
             )}`
@@ -195,28 +220,30 @@ module.exports = {
       aliases: [],
       async run(ctx) {
         const args = ctx.args || [];
+        const settings = getCryptoSettings(ctx);
+        const allowed = normalizeAllowedCoins(settings.allowedCoins);
         if (args.length < 2) {
-          return ctx.reply(clamp('Usage: !sell <symbol> <usd>'));
+          return ctx.reply(clamp(ctx, `Usage: ${ctx.commandPrefix}sell <symbol> <usd>`));
         }
 
         const symbol = args[0].toUpperCase();
         const amount = parseAmount(args[1]);
 
-        if (!ALLOWED_COINS.has(symbol)) {
-          return ctx.reply(clamp(`Unsupported coin. Allowed: ${allowedListText()}`));
+        if (!allowed.has(symbol)) {
+          return ctx.reply(clamp(ctx, `Unsupported coin. Allowed: ${allowedListText(allowed)}`));
         }
         if (amount === null || amount <= 0) {
-          return ctx.reply(clamp('Amount must be greater than 0.'));
+          return ctx.reply(clamp(ctx, 'Amount must be greater than 0.'));
         }
 
         const scopeKey = getScopeKey(ctx);
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(scopeKey, userId, userName);
+        const player = ensurePlayer(scopeKey, userId, userName, settings.startingCash);
 
-        const price = await fetchSinglePrice(symbol);
+        const price = await fetchSinglePrice(symbol, settings);
         if (price === null) {
-          return ctx.reply(clamp(`Price unavailable for ${symbol}. Try again later.`));
+          return ctx.reply(clamp(ctx, `Price unavailable for ${symbol}. Try again later.`));
         }
 
         const proceeds = roundCents(amount);
@@ -226,7 +253,7 @@ module.exports = {
         if (qtyNeeded > currentQty) {
           const mention = ctx.mention(userId, userName);
           return ctx.reply(
-            clamp(`${mention}, insufficient ${symbol}. You have ${formatHoldings(currentQty)}.`)
+            clamp(ctx, `${mention}, insufficient ${symbol}. You have ${formatHoldings(currentQty)}.`)
           );
         }
 
@@ -238,6 +265,7 @@ module.exports = {
         const mention = ctx.mention(userId, userName);
         return ctx.reply(
           clamp(
+            ctx,
             `${mention} sold ${formatHoldings(qtyNeeded)} ${symbol} for $${formatMoney(
               proceeds
             )} @ $${formatMoney(price)}`
@@ -271,11 +299,13 @@ module.exports = {
         const scopeKey = getScopeKey(ctx);
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(scopeKey, userId, userName);
-        const { cash, holdingsValue, total } = await computePortfolio(player);
+        const settings = getCryptoSettings(ctx);
+        const player = ensurePlayer(scopeKey, userId, userName, settings.startingCash);
+        const { cash, holdingsValue, total } = await computePortfolio(player, settings);
         const mention = ctx.mention(userId, userName);
         return ctx.reply(
           clamp(
+            ctx,
             `${mention} portfolio: cash $${formatMoney(cash)}, coins $${formatMoney(
               holdingsValue
             )}, total $${formatMoney(total)}`
@@ -291,32 +321,35 @@ module.exports = {
       aliases: ['position'],
       async run(ctx) {
         const args = ctx.args || [];
+        const settings = getCryptoSettings(ctx);
+        const allowed = normalizeAllowedCoins(settings.allowedCoins);
         if (args.length < 1) {
-          return ctx.reply(clamp('Usage: !coin <symbol>'));
+          return ctx.reply(clamp(ctx, `Usage: ${ctx.commandPrefix}coin <symbol>`));
         }
         const symbol = args[0].toUpperCase();
-        if (!ALLOWED_COINS.has(symbol)) {
-          return ctx.reply(clamp(`Unsupported coin. Allowed: ${allowedListText()}`));
+        if (!allowed.has(symbol)) {
+          return ctx.reply(clamp(ctx, `Unsupported coin. Allowed: ${allowedListText(allowed)}`));
         }
 
         const scopeKey = getScopeKey(ctx);
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);
-        const player = ensurePlayer(scopeKey, userId, userName);
+        const player = ensurePlayer(scopeKey, userId, userName, settings.startingCash);
 
         const qty = roundHoldings(player.holdings?.[symbol] || 0);
-        const price = await fetchSinglePrice(symbol);
+        const price = await fetchSinglePrice(symbol, settings);
         const value = price !== null ? roundCents(price * qty) : 0;
         const mention = ctx.mention(userId, userName);
 
         if (price === null) {
           return ctx.reply(
-            clamp(`${mention} holds ${formatHoldings(qty)} ${symbol}. Price unavailable.`)
+            clamp(ctx, `${mention} holds ${formatHoldings(qty)} ${symbol}. Price unavailable.`)
           );
         }
 
         return ctx.reply(
           clamp(
+            ctx,
             `${mention} holds ${formatHoldings(qty)} ${symbol} wealth $${formatMoney(
               value
             )} @ $${formatMoney(price)}`
@@ -332,19 +365,21 @@ module.exports = {
       aliases: ['chelp'],
       async run(ctx) {
         const mention = ctx.mention(getPlayerId(ctx), getPlayerName(ctx));
+        const settings = getCryptoSettings(ctx);
+        const allowed = normalizeAllowedCoins(settings.allowedCoins);
         const cmds = [
-          '!buy <symbol> <usd>',
-          '!sell <symbol> <usd>',
-          '!wallet',
-          '!coinlist',
-          '!coin <symbol>',
-          '!leaders',
-          '!cryptohelp',
+          `${ctx.commandPrefix}buy <symbol> <usd>`,
+          `${ctx.commandPrefix}sell <symbol> <usd>`,
+          `${ctx.commandPrefix}wallet`,
+          `${ctx.commandPrefix}coinlist`,
+          `${ctx.commandPrefix}coin <symbol>`,
+          `${ctx.commandPrefix}leaders`,
+          `${ctx.commandPrefix}cryptohelp`,
         ];
-        const allowed = allowedListText();
         return ctx.reply(
           clamp(
-            `${mention} crypto: ${cmds.join(' | ')} | !coinlist: ${allowed}`
+            ctx,
+            `${mention} crypto: ${cmds.join(' | ')} | ${ctx.commandPrefix}coinlist: ${allowedListText(allowed)}`
           )
         );
       },
@@ -359,20 +394,28 @@ module.exports = {
         const scopeKey = getScopeKey(ctx);
         const players = listPlayers(scopeKey);
         if (!players.length) {
-          return ctx.reply(clamp('No traders yet.'));
+          return ctx.reply(clamp(ctx, 'No traders yet.'));
         }
+
+        const settings = getCryptoSettings(ctx);
+        const allowed = normalizeAllowedCoins(settings.allowedCoins);
 
         // Collect all symbols in use to price them once.
         const symbols = new Set();
         players.forEach((p) => {
           Object.entries(p.holdings || {}).forEach(([sym, qty]) => {
-            if (qty > 0 && ALLOWED_COINS.has(sym.toUpperCase())) {
+            if (qty > 0 && allowed.has(sym.toUpperCase())) {
               symbols.add(sym.toUpperCase());
             }
           });
         });
 
-        const priceMap = symbols.size ? await getPrices(Array.from(symbols)) : {};
+        const priceMap = symbols.size
+          ? await getPrices(Array.from(symbols), {
+              allowedCoins: settings.allowedCoins,
+              ttlMs: settings.coingeckoTtlMs,
+            })
+          : {};
 
         const ranked = players
           .map((p) => {
@@ -397,7 +440,7 @@ module.exports = {
           }
         });
 
-        return ctx.reply(clamp(parts.join(' | ') || 'No traders yet.'));
+        return ctx.reply(clamp(ctx, parts.join(' | ') || 'No traders yet.'));
       },
     },
 
@@ -408,7 +451,9 @@ module.exports = {
       aliases: [],
       async run(ctx) {
         const mention = ctx.mention(getPlayerId(ctx), getPlayerName(ctx));
-        return ctx.reply(clamp(`${mention} coins: ${allowedListText()}`));
+        const settings = getCryptoSettings(ctx);
+        const allowed = normalizeAllowedCoins(settings.allowedCoins);
+        return ctx.reply(clamp(ctx, `${mention} coins: ${allowedListText(allowed)}`));
       },
     },
 
@@ -421,7 +466,7 @@ module.exports = {
       async run(ctx) {
         const scopeKey = getScopeKey(ctx);
         resetAll(scopeKey);
-        return ctx.reply(clamp('Crypto state reset for this scope.'));
+        return ctx.reply(clamp(ctx, 'Crypto state reset for this scope.'));
       },
     },
   },

@@ -2,7 +2,6 @@
 // Scoped crypto game state backed by per-context JSON files.
 const { getScopedState, saveScopedState, resetScopedState } = require('../../state/scopedStore');
 const { logger } = require('../../utils/logger');
-const { CRYPTO_STARTING_CASH } = require('../../config/env');
 
 const STATE_FILE = 'crypto.json';
 
@@ -25,14 +24,14 @@ function persist(scopeKey) {
   }
 }
 
-function ensurePlayer(scopeKey, id, name) {
+function ensurePlayer(scopeKey, id, name, startingCash) {
   const state = getState(scopeKey);
   let player = state.players[id];
   if (!player) {
     player = {
       id,
       name: name || `Trader_${id}`,
-      cash: CRYPTO_STARTING_CASH,
+      cash: Number(startingCash) || 1000,
       holdings: {},
     };
     state.players[id] = player;

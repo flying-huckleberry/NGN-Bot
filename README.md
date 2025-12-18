@@ -1,16 +1,17 @@
-# YouTube & Discord Live Chat Bot
+﻿# YouTube & Discord Live Chat Bot
 
-A modular Node.js bot that connects to both YouTube Live Chat and Discord. It processes commands through a shared router, serves a unified Dev/Playground web UI, and supports PROD/DEV/Playground modes to balance real usage with safe offline testing.
+A modular Node.js bot that connects to both YouTube Live Chat and Discord. It processes commands through a shared router, serves an Accounts/Control Panel web UI plus Playground, and supports PROD/DEV/Playground modes to balance real usage with safe offline testing.
 
 ## Features
 
-- PROD: auto-connects to the target livestream and continuously polls chat.
-- DEV: manual connect/poll via web UI to conserve YouTube quota.
+- PROD: auto-connects per account and continuously polls chat for each configured YouTube channel.
+- DEV: manual connect/poll per account via the control panel to conserve YouTube quota.
 - Playground: offline fake chat for developing commands without API calls.
-- Discord transport: discord.js client shares the same command registry and scoped racing state.
+- Discord transport: discord.js client shares the same command registry and scoped state.
 - Crypto paper-trading mini-game with CoinGecko prices and per-scope portfolios.
 - Semantic word-guess game using OpenAI embeddings.
-- Unified web UI: Dev panel and playground in the browser.
+- Multi-account control panel with per-account settings (prefix, race config, disabled modules, Discord channel rules, etc).
+- Web UI: Accounts picker, account control panels, and Playground.
 - OAuth2 for YouTube; Discord token-based auth.
 - Scoped persistence: per-playground, per-YouTube channel, and per-Discord guild state.
 - Modular commands in `src/modules/`; racing mini-game with upgrades and payouts.
@@ -34,10 +35,9 @@ Fill `.env` with:
 
 - Google OAuth credentials
 - Bot mode (dev/prod)
-- Livestream targeting (URL/video ID/channel ID/title match)
-- Command prefix and quota settings
-- Discord bot token and allowed guild/channel IDs (optional)
-- Racing Discord channel mapping (optional)
+- Global defaults (command prefix, OpenAI model, etc.)
+- Discord bot token (optional)
+- Optional legacy targeting (for quick single-account testing)
 
 ### Environment example
 
@@ -49,7 +49,7 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
 
-# Choose ONE targeting method:
+# Optional legacy targeting (single-account fallback):
 TARGET_LIVESTREAM_URL=https://www.youtube.com/watch?v=XXXX
 # TARGET_VIDEO_ID=XXXXXXXXXXX
 # TARGET_CHANNEL_ID=UCxxxxxxxxxxxx
@@ -61,21 +61,12 @@ POLL_ESTIMATE_UNITS=5
 
 # Discord transport (optional)
 DISCORD_BOT_TOKEN=your-discord-bot-token
-DISCORD_ALLOWED_GUILD_IDS=
-DISCORD_ALLOWED_CHANNEL_IDS=
-# Restrict racing commands per guild (comma separated guildId:channelId pairs)
-DISCORD_RACING_CHANNELS=
 
-# Disable modules (CSV)
-DISABLED_MODULES=
-
-# Crypto game (CoinGecko-backed paper trading)
-CRYPTO_ALLOWED_COINS=BTC,ETH,SOL,DOGE,LTC
-CRYPTO_STARTING_CASH=1000
-COINGECKO_TTL_MS=60000  # set 0 for no cache
+# Per-account settings (prefix, disabled modules, race config, crypto settings,
+# Discord allowed channels, etc.) are managed in the control panel.
 ```
 
-Target selection priority: `TARGET_LIVESTREAM_URL` > `TARGET_VIDEO_ID` > `TARGET_CHANNEL_ID` (+optional `TARGET_TITLE_MATCH`).
+Target selection priority (legacy fallback): `TARGET_LIVESTREAM_URL` > `TARGET_VIDEO_ID` > `TARGET_CHANNEL_ID` (+optional `TARGET_TITLE_MATCH`).
 
 ## Running the bot
 
@@ -83,7 +74,7 @@ Target selection priority: `TARGET_LIVESTREAM_URL` > `TARGET_VIDEO_ID` > `TARGET
 ```bash
 npm start
 ```
-Open `http://localhost:3000`. If YouTube tokens are missing, you’ll be redirected to `/auth` to sign in with the bot’s YouTube account.
+Open `http://localhost:3000`. If YouTube tokens are missing, you will be redirected to `/auth` to sign in with the bot's YouTube account.
 
 ### Playground (offline)
 ```bash
@@ -92,25 +83,37 @@ npm run dev
 Open `http://localhost:4000`. No external API calls are made; useful for developing commands safely.
 
 ### Discord transport
-If `DISCORD_BOT_TOKEN` is set, the Discord client starts alongside YouTube. Messages starting with the command prefix use the same router and replies stay in the originating channel. Optional allowlists (`DISCORD_ALLOWED_GUILD_IDS`, `DISCORD_ALLOWED_CHANNEL_IDS`) scope handling. The racing game enforces one channel per guild via `DISCORD_RACING_CHANNELS`; commands elsewhere are rejected with a reminder.
+If `DISCORD_BOT_TOKEN` is set, the Discord client starts alongside YouTube. Messages starting with the per-account command prefix use the same router and replies stay in the originating channel. Discord guild + channel access, and racing channel restrictions, are configured per account in the control panel.
 
 ### Crypto paper trading
-Enabled by default. Users start with `CRYPTO_STARTING_CASH` USD and can trade allowlisted coins (`CRYPTO_ALLOWED_COINS` tickers CSV). Prices come from CoinGecko `/simple/price`, cached for `COINGECKO_TTL_MS` milliseconds (set 0 for no cache). Commands: `!buy <symbol> <usd>`, `!sell <symbol> <usd>`, `!cash`, `!wallet`, `!coin <symbol>`, `!leaders`. Replies tag the user and respect the chat character limit.
+Enabled by default. Users start with account-scoped starting cash and can trade allowlisted coins from the account settings. Prices come from CoinGecko `/simple/price`, cached per account TTL (set 0 for no cache). Commands: `!buy <symbol> <usd>`, `!sell <symbol> <usd>`, `!wallet`, `!coin <symbol>`, `!leaders`. Replies tag the user and respect the chat character limit.
 
 ### Semantic word game
 Uses OpenAI embeddings to compare guesses against `SEMANTIC_TARGET_WORD`. Caches the target embedding; similarity is computed locally. Commands: `!guess <word>`, `!semantic` (help), `!semanticwins`, `!semanticreset` (admin: Discord Administrator or YouTube chat owner). Replies show similarity, your best guess, and guess count; a correct guess ends the round for the current target.
 
 ### Scoped state
 Stateful features persist per context:
-- `playground` — offline sandbox state.
-- `youtube:<channelId>` — per creator channel.
-- `discord:<guildId>` — per server, with racing limited to the configured channel.
+- `playground` - offline sandbox state.
+- `youtube:<channelId>` - per creator channel.
+- `discord:<guildId>` - per server, with racing limited to the configured channel.
 
 Use `src/state/scopedStore.js` for new modules; pass `ctx.stateScope` and your filename to load/save under `state/scoped/<scope>/`.
 
+## Accounts and storage
+
+Accounts are stored under `state/accounts.json` (registry) with per-account files in `state/accounts/<id>/`. These files are gitignored by default.
+
+Per-account files include:
+- `settings.json` (editable in the control panel)
+- `runtime.json` (liveChatId, primed, page tokens)
+- `secrets.json` (per-account tokens; currently plaintext)
+
+Legacy `dev_state.json` is migrated to a default account on startup.
+
 ## Web UI
 
-- `/` (Dev Panel): connect/poll controls, quota usage, target info, token status, dev state reset, raw JSON debug panel.
+- `/accounts`: account picker + create new accounts.
+- `/accounts/:id/cpanel`: account control panel (connect/poll, quotas, settings, module toggles).
 - `/sandbox`: fake chat playground to send commands and view replies without API calls.
 - `/auth`: starts YouTube OAuth2.
 - `/oauth2callback`: stores OAuth tokens.
@@ -127,7 +130,7 @@ YouTube Data API v3 daily limits are estimated in `state/quota.js`:
 | Prime chat            | ~5           |
 | Poll once             | ~5           |
 
-Resets automatically at midnight Pacific and is shown in the Dev Panel.
+Resets automatically at midnight Pacific and is shown in each control panel.
 
 ## Commands
 
@@ -147,32 +150,33 @@ module.exports = {
 };
 ```
 
-Trigger with the prefix (default `!`): `!hello`. The router handles parsing, owner checks, execution, and replies across YouTube and Discord.
+Trigger with the per-account prefix (default `!`): `!hello`. The router handles parsing, owner checks, execution, and replies across YouTube and Discord.
 
 ## Project structure
 
 ```
 src/
   index.js               # Main runtime + web UI server
+  views/                 # EJS templates for accounts + control panel
   modules/               # Command modules
   services/
     youtube.js           # OAuth + YouTube API client
     discord.js           # Discord transport bootstrap
     openai.js            # !ask logic
-    liveChatTarget.js    # Resolves liveChatId from env
+    liveChatTarget.js    # Resolves liveChatId from overrides/account config
     league.js            # League API commands
     racing/              # Racing game logic, state, parts, venues
     crypto/              # CoinGecko-backed paper trading state/prices
     semantic/            # Semantic word game state/logic (OpenAI embeddings)
   routes/
-    dev.js               # Dev panel handler
+    accounts.js          # Accounts + control panel routes
     playground.js        # Playground UI
   server/
     auth.js              # OAuth endpoints
-    layout.js            # Shared HTML layout
+    layout.js            # Shared HTML layout (playground/auth)
   state/
-    g.js                 # In-memory global state
-    devState.js          # Saved state for DEV mode
+    accounts.json        # Account registry (gitignored)
+    accounts/            # Per-account runtime/settings/secrets (gitignored)
     quota.js             # Quota accounting + reset
     scopedStore.js       # Scoped JSON storage helper
   utils/
@@ -186,14 +190,14 @@ src/
 
 1. Set `MODE=dev` in `.env`.
 2. `npm start` (web UI at `http://localhost:3000`).
-3. Connect manually, then poll once to process chat.
+3. Create an account, connect manually, then poll once to process chat.
 4. Edit or add commands in `src/modules/`.
 5. Test in real chat (uses quota) or `/sandbox` (no quota).
 
 Deploy:
 
 1. Set `MODE=prod`.
-2. Confirm targeting values in `.env`.
+2. Fill account settings (YouTube channel ID, Discord guild, etc.) in the control panel.
 3. `npm start` and let it run.
 
 ## Adding new commands
@@ -218,7 +222,8 @@ module.exports = {
 ## Summary
 
 This bot runs on YouTube and Discord with:
+- Multi-account control panels and account-scoped settings.
 - Seamless PROD operation and a quota-friendly DEV mode.
 - Offline Playground for safe development.
-- Shared web UI, modular commands, scoped persistence, and racing mini-game.
+- Modular commands, scoped persistence, and racing mini-game.
 - Automatic quota tracking and robust startup checks.

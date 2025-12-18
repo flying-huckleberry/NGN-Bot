@@ -72,9 +72,29 @@ function resetScopedState(scopeKey, fileName, defaultFactory = () => ({})) {
   return fresh;
 }
 
+function deleteScope(scopeKey) {
+  if (!scopeKey) return false;
+  const key = safeSegment(scopeKey);
+  const dir = path.join(BASE_DIR, key);
+  try {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    for (const cacheKey of cache.keys()) {
+      if (cacheKey.startsWith(`${scopeKey}::`)) {
+        cache.delete(cacheKey);
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   getScopedState,
   saveScopedState,
   setScopedState,
   resetScopedState,
+  deleteScope,
 };

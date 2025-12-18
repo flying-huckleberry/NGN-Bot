@@ -7,11 +7,14 @@ const {
 } = require('discord.js');
 const {
   DISCORD_BOT_TOKEN,
-  DISCORD_ALLOWED_GUILD_IDS = [],
-  DISCORD_ALLOWED_CHANNEL_IDS = [],
   COMMAND_PREFIX,
 } = require('../config/env');
 const { logger } = require('../utils/logger');
+const {
+  findAccountByDiscordGuildId,
+} = require('../state/accountsRepo');
+const { loadAccountSettings } = require('../state/accountSettings');
+const { loadAccountRuntime } = require('../state/accountRuntime');
 
 let client = null;
 const status = {
@@ -22,23 +25,13 @@ const status = {
   username: null,
 };
 
-function isGuildAllowed(guildId) {
-  if (!guildId) return true;
-  if (!Array.isArray(DISCORD_ALLOWED_GUILD_IDS) || DISCORD_ALLOWED_GUILD_IDS.length === 0) {
-    return true;
-  }
-  return DISCORD_ALLOWED_GUILD_IDS.includes(guildId);
-}
-
-function isChannelAllowed(channelId) {
+function isChannelAllowed(channelId, settings) {
   if (!channelId) return true;
-  if (
-    !Array.isArray(DISCORD_ALLOWED_CHANNEL_IDS) ||
-    DISCORD_ALLOWED_CHANNEL_IDS.length === 0
-  ) {
+  const allowed = settings?.discord?.allowedChannelIds || [];
+  if (!Array.isArray(allowed) || allowed.length === 0) {
     return true;
   }
-  return DISCORD_ALLOWED_CHANNEL_IDS.includes(channelId);
+  return allowed.includes(channelId);
 }
 
 function normalizeDiscordMessage(message) {
@@ -127,11 +120,14 @@ async function startDiscordTransport({ dispatch }) {
 
   client.on('messageCreate', async (message) => {
     if (!message || message.author?.bot) return;
-    if (!isGuildAllowed(message.guildId)) return;
-    if (!isChannelAllowed(message.channelId)) return;
+    const account = findAccountByDiscordGuildId(message.guildId);
+    if (!account) return;
+    const settings = loadAccountSettings(account.id);
+    if (!isChannelAllowed(message.channelId, settings)) return;
 
     const text = (message.content || '').trim();
-    if (!text.startsWith(COMMAND_PREFIX)) return;
+    const prefix = settings?.commandPrefix || COMMAND_PREFIX || '!';
+    if (!text.startsWith(prefix)) return;
 
     const msg = normalizeDiscordMessage(message);
 
@@ -148,6 +144,10 @@ async function startDiscordTransport({ dispatch }) {
           },
           rawDiscord: message,
         },
+        accountId: account.id,
+        accountSettings: settings,
+        account,
+        accountRuntime: loadAccountRuntime(account.id),
       });
     } catch (err) {
       logger.error('Discord dispatch error:', err);

@@ -18,11 +18,6 @@ const {
 
 const { computeRaceOutcome } = require('../../services/racing/logic');
 const partsConfig = require('../../services/racing/parts');
-const {
-  RACE_JOIN_WINDOW_MS,
-  RACE_COOLDOWN_MS,
-  DISCORD_RACING_CHANNELS = {},
-} = require('../../config/env');
 const { transferCash } = require('../../services/racing/transfer');
 const {
   getForcedWinnerId,
@@ -30,8 +25,6 @@ const {
   applyForcedWinner,
 } = require('../../services/racing/forcedWinner');
 
-const JOIN_WINDOW_MS = Number(RACE_JOIN_WINDOW_MS || 60000);       // 60s
-const COOLDOWN_MS = Number(RACE_COOLDOWN_MS || 3600000);          // 1h
 const LAST_PLACE_PAYOUT = 50;
 const PLACE_STEP = 25;
 
@@ -42,6 +35,23 @@ function getScopeKey(ctx) {
   return ctx.stateScope || 'global';
 }
 
+function getRaceConfig(ctx) {
+  const joinWindowMs =
+    Number(ctx?.settings?.race?.joinWindowMs) ||
+    Number(ctx?.env?.RACE_JOIN_WINDOW_MS) ||
+    60000;
+  const cooldownMs =
+    Number(ctx?.settings?.race?.cooldownMs) ||
+    Number(ctx?.env?.RACE_COOLDOWN_MS) ||
+    3600000;
+  return { joinWindowMs, cooldownMs };
+}
+
+function cmd(ctx, text) {
+  const prefix = ctx?.commandPrefix || '!';
+  return `${prefix}${text}`;
+}
+
 function isDiscordChannelAllowed(ctx) {
   if (ctx.platform !== 'discord') return true;
   const guildId = ctx.platformMeta?.discord?.guildId;
@@ -49,7 +59,7 @@ function isDiscordChannelAllowed(ctx) {
     ctx.platformMeta?.discord?.channelId || ctx.transport?.channelId || null;
   if (!guildId || !currentChannel) return false;
 
-  const allowedChannel = DISCORD_RACING_CHANNELS[guildId];
+  const allowedChannel = ctx.settings?.discord?.racingChannelId || '';
   if (!allowedChannel) {
     ctx.reply('Racing commands are not enabled on this Discord server.');
     return false;
@@ -262,7 +272,8 @@ async function resolveRace(ctx) {
   }
 
   if (playerIds.length <= 1) {
-    setCooldownUntil(scopeKey, now + COOLDOWN_MS);
+    const { cooldownMs } = getRaceConfig(ctx);
+    setCooldownUntil(scopeKey, now + cooldownMs);
     rollNextRace(scopeKey);
     await ctx.reply('Nobody else showed up. The race is a bye, no cash awarded.');
     return;
@@ -363,7 +374,10 @@ async function resolveRace(ctx) {
     updatePlayerCash(scopeKey, p.id, payout);
   });
 
-  setCooldownUntil(scopeKey, now + COOLDOWN_MS);
+  {
+    const { cooldownMs } = getRaceConfig(ctx);
+    setCooldownUntil(scopeKey, now + cooldownMs);
+  }
   rollNextRace(scopeKey); // we won't mention next venue in this message to save chars
 
   // --- Compact results message (char-budget friendly) ---
@@ -413,6 +427,7 @@ module.exports = {
         const scopeKey = getScopeKey(ctx);
         const player = ensurePlayer(scopeKey, userId, userName);
 
+        const { joinWindowMs } = getRaceConfig(ctx);
         // Check cooldown
         // Check cooldown
         // Check cooldown
@@ -434,7 +449,7 @@ module.exports = {
             venue: nextRace.venue,
             weather: nextRace.weather,
             players: [player.id],
-            lobbyEndsAt: now + JOIN_WINDOW_MS,
+            lobbyEndsAt: now + joinWindowMs,
             forcedWinnerId: null,
           };
           setRace(scopeKey, race);
@@ -448,12 +463,12 @@ module.exports = {
             resolveRace(ctx).catch((err) => {
               ctx.logger?.error?.('[racing] Error resolving race', err);
             });
-          }, JOIN_WINDOW_MS);
+          }, joinWindowMs);
           raceTimers.set(scopeKey, timer);
 
           const mention = ctx.mention(player.id, player.name);
           return ctx.reply(
-            `${mention} wants to street race! Message !race to line up at the starting line! Venue: ${race.venue}; Weather: ${race.weather}`
+            `${mention} wants to street race! Message ${cmd(ctx, 'race')} to line up at the starting line! Venue: ${race.venue}; Weather: ${race.weather}`
           );
         }
 
@@ -560,7 +575,7 @@ module.exports = {
         if (args.length === 0) {
           const partTypes = formatPartTypesList();
           return ctx.reply(
-            `To see what upgrades are available for a part, type !upgrade <Part Name>. Part types are: ${partTypes}`
+            `To see what upgrades are available for a part, type ${cmd(ctx, 'upgrade')} <Part Name>. Part types are: ${partTypes}`
           );
         }
 
@@ -596,7 +611,7 @@ module.exports = {
         const choiceKey = resolveChoiceKey(partKey, choiceRaw);
         if (!choiceKey) {
           return ctx.reply(
-            `Unknown upgrade for ${partKey}. Type !upgrade ${partKey} to see options.`
+            `Unknown upgrade for ${partKey}. Type ${cmd(ctx, 'upgrade')} ${partKey} to see options.`
           );
         }
 
@@ -626,7 +641,7 @@ module.exports = {
       async run(ctx) {
         const args = ctx.args || [];
         if (args.length < 2) {
-          return ctx.reply('Usage: !give <@player> <amount>');
+          return ctx.reply(`Usage: ${cmd(ctx, 'give')} <@player> <amount>`);
         }
 
         const targetToken = args[0];
@@ -669,7 +684,7 @@ module.exports = {
       aliases: ['racerules'],
       async run(ctx) {
         await ctx.reply(
-          'Street racing: Use !race to start or join a race; !venue shows the upcoming track; !car shows your build; !upgrade <part> lists or buys mods; !cash shows your money.'
+          `Street racing: Use ${cmd(ctx, 'race')} to start or join a race; ${cmd(ctx, 'venue')} shows the upcoming track; ${cmd(ctx, 'car')} shows your build; ${cmd(ctx, 'upgrade')} <part> lists or buys mods; ${cmd(ctx, 'cash')} shows your money.`
         );
       },
     },
@@ -710,7 +725,9 @@ module.exports = {
         }
 
         if (!race.players.includes(userId)) {
-          return ctx.reply('Join the race first with !race, then use !ihaveagun.');
+          return ctx.reply(
+            `Join the race first with ${cmd(ctx, 'race')}, then use ${cmd(ctx, 'ihaveagun')}.`
+          );
         }
 
         ensurePlayer(scopeKey, userId, userName);

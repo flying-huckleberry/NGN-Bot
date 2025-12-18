@@ -95,7 +95,7 @@ module.exports = {
       async run(ctx) {
         const args = ctx.args || [];
         if (args.length < 1) {
-          return ctx.reply(clamp('Usage: !guess <word>'));
+          return ctx.reply(clamp(`Usage: ${ctx.commandPrefix}guess <word>`));
         }
 
         const rawGuess = args.join(' ').trim();
@@ -242,10 +242,10 @@ module.exports = {
       async run(ctx) {
         const mention = ctx.mention(getPlayerId(ctx), getPlayerName(ctx));
         const cmds = [
-          '!guess <word>',
-          '!semantic',
-          '!semanticwins',
-          '!semanticreset',
+          `${ctx.commandPrefix}guess <word>`,
+          `${ctx.commandPrefix}semantic`,
+          `${ctx.commandPrefix}semanticwins`,
+          `${ctx.commandPrefix}semanticreset`,
         ];
         return ctx.reply(clamp(`${mention} semantic: ${cmds.join(' | ')}`));
       },

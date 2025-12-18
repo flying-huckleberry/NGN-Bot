@@ -96,7 +96,7 @@ module.exports = {
             .join(' | ');
 
           return ctx.reply(
-            `Command "${cmdToken}" exists in: ${list}. Use !help <module> ${cmdToken} for details.`
+            `Command "${cmdToken}" exists in: ${list}. Use ${ctx.commandPrefix}help <module> ${cmdToken} for details.`
           );
         }
 

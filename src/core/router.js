@@ -5,9 +5,19 @@ const { parseText } = require('../utils/parse');
 // Returns dispatcher: (msg) => Promise<void>
 function createRouter({ registry, buildContext, isModuleDisabled }) {
   // registry: { modules: { [moduleName]: ModuleManifest }, flat: Map<commandName, {mod, def}> }
-  return async function dispatch({ msg, liveChatId, transport, platformMeta }) {
+  return async function dispatch({
+    msg,
+    liveChatId,
+    transport,
+    platformMeta,
+    accountId,
+    accountSettings,
+    account,
+    accountRuntime,
+  }) {
     const text = msg?.snippet?.textMessageDetails?.messageText || '';
-    const parsed = parseText(text, COMMAND_PREFIX);
+    const prefix = accountSettings?.commandPrefix || COMMAND_PREFIX || '!';
+    const parsed = parseText(text, prefix);
     if (!parsed) return; // not a command
 
     const { modName, cmdName, args } = parsed;
@@ -17,7 +27,7 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
       const mod = registry.modules[modName];
       const def = mod?.commands?.[cmdName];
       if (def) {
-        if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta)) return;
+        if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta, accountSettings)) return;
         return runCommand({
           mod,
           def,
@@ -27,6 +37,10 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
           buildContext,
           transport,
           platformMeta,
+          accountId,
+          accountSettings,
+          account,
+          accountRuntime,
         });
       }
     }
@@ -37,7 +51,7 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
       const mod = registry.modules[modName];
       const def = mod?.commands?.[maybeCmd];
       if (def) {
-        if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta)) return;
+        if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta, accountSettings)) return;
         return runCommand({
           mod,
           def,
@@ -47,6 +61,10 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
           buildContext,
           transport,
           platformMeta,
+          accountId,
+          accountSettings,
+          account,
+          accountRuntime,
         });
       }
     }
@@ -55,7 +73,7 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
     const flat = registry.flat.get(modName);
     if (flat) {
       const { mod, def } = flat;
-      if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta)) return;
+      if (isModuleDisabled && isModuleDisabled(mod.name, transport, platformMeta, accountSettings)) return;
       return runCommand({
         mod,
         def,
@@ -65,6 +83,10 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
         buildContext,
         transport,
         platformMeta,
+        accountId,
+        accountSettings,
+        account,
+        accountRuntime,
       });
     }
 
@@ -72,8 +94,31 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
   };
 }
 
-async function runCommand({ mod, def, msg, liveChatId, args, buildContext, transport, platformMeta }) {
-  const ctx = await buildContext({ msg, liveChatId, args, transport, platformMeta });
+async function runCommand({
+  mod,
+  def,
+  msg,
+  liveChatId,
+  args,
+  buildContext,
+  transport,
+  platformMeta,
+  accountId,
+  accountSettings,
+  account,
+  accountRuntime,
+}) {
+  const ctx = await buildContext({
+    msg,
+    liveChatId,
+    args,
+    transport,
+    platformMeta,
+    accountId,
+    accountSettings,
+    account,
+    accountRuntime,
+  });
   const stack = [
     ...(mod.middleware || []),
     ...(def.middleware || []),

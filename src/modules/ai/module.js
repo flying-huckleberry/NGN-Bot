@@ -19,7 +19,7 @@ module.exports = {
       aliases: ['a', 'ai'],
       async run(ctx) {
         const q = ctx.args.join(' ').trim();
-        if (!q) return ctx.reply('Usage: !ai ask <question>');
+        if (!q) return ctx.reply(`Usage: ${ctx.commandPrefix}ai ask <question>`);
 
         let reply = await askGPT(q, MAX_CHARS);
         ctx.logger.info(`🧠 ai.ask → ${q}`);

@@ -1,13 +1,23 @@
 // src/core/context.js
 const env = require('../config/env');
 const { sendChatMessage } = require('../services/youtube');
-const g = require('../state/g');
 const { deriveStateScope } = require('../state/stateScope');
+const { buildAccountEnv } = require('../state/accountSettings');
 const { logger, getLogger } = require('../utils/logger');
 const botLogger = getLogger('bot');
 
 function buildContextFactory(services) {
-  return async function buildContext({ msg, liveChatId, args, transport, platformMeta }) {
+  return async function buildContext({
+    msg,
+    liveChatId,
+    args,
+    transport,
+    platformMeta,
+    accountId,
+    account,
+    accountSettings,
+    accountRuntime,
+  }) {
     // Best-effort extraction of the author name
     const authorName =
       msg?.authorDetails?.displayName ||
@@ -32,11 +42,12 @@ function buildContextFactory(services) {
       };
 
     const scopeInfo = deriveStateScope({ transport: activeTransport, platformMeta });
+    const mergedEnv = buildAccountEnv(accountSettings || {});
 
     const ctx = {
-      env,
+      env: mergedEnv,
       services,
-      state: g,
+      state: { disabledModules: accountSettings?.disabledModules || [] },
       logger,     // app logger
       botLogger,  // bot logger if you ever want direct access
       msg,
@@ -49,6 +60,12 @@ function buildContextFactory(services) {
       platformMeta,
       stateScope: scopeInfo.scopeKey,
       scopeInfo,
+      accountId,
+      account,
+      accountSettings: accountSettings || {},
+      settings: accountSettings || {},
+      accountRuntime: accountRuntime || {},
+      commandPrefix: mergedEnv.COMMAND_PREFIX || '!',
     };
 
     ctx.mention = (userId, fallbackName = ctx.authorName || 'user') => {
