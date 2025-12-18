@@ -9,11 +9,15 @@ const RUNTIME_FILE = 'runtime.json';
 const cache = new Map();
 
 function defaultRuntime() {
+  // Per-account runtime state for active YouTube chat connections.
   return {
     liveChatId: null,
     nextPageToken: null,
     primed: false,
     youtubeChannelId: null,
+    // Capture how we resolved the live chat (override vs account config) for UI display.
+    resolvedMethod: null,
+    targetInfo: {},
   };
 }
 

@@ -21,21 +21,28 @@ function normalizeIdList(input) {
 }
 
 function defaultSettings() {
+  // Baseline account settings used when no settings.json exists.
   return {
     commandPrefix: env.COMMAND_PREFIX || '!',
     disabledModules: normalizeModules(env.DISABLED_MODULES || []),
+    youtube: {
+      // Transport enablement is per account; YouTube connects/disconnects.
+      enabled: true,
+    },
+    discord: {
+      // Discord enablement gates routing, not global presence.
+      enabled: true,
+      allowedChannelIds: [],
+      racingChannelId: '',
+    },
     race: {
       cooldownMs: Number(env.RACE_COOLDOWN_MS) || 3600000,
       joinWindowMs: Number(env.RACE_JOIN_WINDOW_MS) || 60000,
     },
-    discord: {
-      allowedChannelIds: [],
-      racingChannelId: '',
-    },
     crypto: {
       allowedCoins: Array.isArray(env.CRYPTO_ALLOWED_COINS)
         ? env.CRYPTO_ALLOWED_COINS.map((c) => String(c || '').toUpperCase())
-        : ['BTC', 'ETH', 'SOL', 'DOGE', 'LTC'],
+      : ['BTC', 'ETH', 'SOL', 'DOGE', 'LTC'],
       startingCash: Number(env.CRYPTO_STARTING_CASH) || 1000,
       coingeckoTtlMs: Number(env.COINGECKO_TTL_MS) || 0,
     },
@@ -43,6 +50,7 @@ function defaultSettings() {
 }
 
 function normalizeSettings(settings) {
+  // Normalize and fill defaults to keep settings robust across partial updates.
   const base = defaultSettings();
   const next = { ...base, ...(settings || {}) };
 
@@ -63,8 +71,13 @@ function normalizeSettings(settings) {
   }
 
   next.discord = {
+    enabled: Boolean(next.discord?.enabled ?? base.discord.enabled),
     allowedChannelIds: normalizeIdList(next.discord?.allowedChannelIds),
     racingChannelId: String(next.discord?.racingChannelId || '').trim(),
+  };
+
+  next.youtube = {
+    enabled: Boolean(next.youtube?.enabled ?? base.youtube.enabled),
   };
 
   {

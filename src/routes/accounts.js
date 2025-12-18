@@ -69,6 +69,8 @@ function buildCpanelViewModel({
   const safeRuntime = runtime || {};
   const safeModules = Array.isArray(modules) ? modules : [];
   const safeDiscordStatus = discordStatus || { enabled: false, state: 'disabled' };
+  const resolved = resolvedMethod ?? safeRuntime.resolvedMethod ?? null;
+  const target = targetInfo ?? safeRuntime.targetInfo ?? {};
   return {
     title: `Control Panel - ${safeAccount.name}`,
     account: safeAccount,
@@ -80,8 +82,8 @@ function buildCpanelViewModel({
     error,
     discordStatus: safeDiscordStatus,
     lastPoll,
-    resolvedMethod: resolvedMethod || null,
-    targetInfo: targetInfo || {},
+    resolvedMethod: resolved,
+    targetInfo: target,
     stateFile: safeAccount.id && accountRuntimeExists(safeAccount.id) ? 'present' : 'missing',
     ...rest,
   };
@@ -117,10 +119,12 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
 
   const moduleNames = Object.keys(modules || {}).sort();
 
+  // Account picker landing
   app.get('/', (req, res) => {
     res.redirect('/accounts');
   });
 
+  // List + create accounts
   app.get('/accounts', async (req, res) => {
     return respondAccounts(app, req, res, {
       title: 'Accounts',
@@ -151,6 +155,7 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     if (!account) {
       return res.status(404).send('Account not found.');
     }
+    // Load current account runtime/settings for display
     const runtime = loadAccountRuntime(account.id);
     const settings = loadAccountSettings(account.id);
     const quota = getQuotaInfo();
@@ -170,6 +175,7 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     if (!account) {
       return res.status(404).send('Account not found.');
     }
+    const settings = loadAccountSettings(account.id);
 
     const name = String(req.body?.name || '').trim();
     const youtubeChannelId = String(req.body?.youtubeChannelId || '').trim();
@@ -184,19 +190,25 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     const cryptoTtlMs = parseNumber(req.body?.cryptoTtlMs);
 
     try {
+      // Account registry holds unique IDs (name/youtube/discord) for validation.
       const updated = updateAccount(account.id, {
         name,
         youtube: { channelId: youtubeChannelId },
         discord: { guildId: discordGuildId },
       });
 
+      // Settings are account-scoped and editable in the control panel.
       updateAccountSettings(account.id, {
         commandPrefix,
+        youtube: {
+          enabled: settings.youtube?.enabled ?? true,
+        },
         race: {
           cooldownMs: raceCooldownMs,
           joinWindowMs: raceJoinWindowMs,
         },
         discord: {
+          enabled: settings.discord?.enabled ?? true,
           allowedChannelIds,
           racingChannelId,
         },
@@ -242,6 +254,7 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     }
 
     try {
+      // Remove account registry + all scoped state on delete.
       const removed = deleteAccount(account.id);
       if (removed.youtube?.channelId) {
         deleteScope(`youtube:${removed.youtube.channelId}`);
@@ -308,6 +321,144 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     }));
   });
 
+  // Transport toggles: YouTube connects/disconnects, Discord gates routing per account.
+  app.post('/accounts/:id/cpanel/transports', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+
+    const transport = String(req.body?.transport || '').trim().toLowerCase();
+    const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
+    const runtime = loadAccountRuntime(account.id);
+    const settings = loadAccountSettings(account.id);
+    const quota = getQuotaInfo();
+
+    if (transport === 'discord') {
+      updateAccountSettings(account.id, {
+        discord: { enabled },
+      });
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings: loadAccountSettings(account.id),
+        runtime,
+        modules: moduleNames,
+        quota,
+        message: `Discord routing ${enabled ? 'enabled' : 'disabled'}.`,
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
+
+    if (transport !== 'youtube') {
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings,
+        runtime,
+        modules: moduleNames,
+        quota,
+        error: 'Unknown transport.',
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
+
+    if (!enabled) {
+      // Disable YouTube transport and clear cached runtime for this account.
+      runtime.liveChatId = null;
+      runtime.nextPageToken = null;
+      runtime.primed = false;
+      runtime.youtubeChannelId = null;
+      runtime.resolvedMethod = null;
+      runtime.targetInfo = {};
+      saveAccountRuntime(account.id, runtime);
+      updateAccountSettings(account.id, { youtube: { enabled: false } });
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings: loadAccountSettings(account.id),
+        runtime,
+        modules: moduleNames,
+        quota,
+        message: 'YouTube transport disabled.',
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
+
+    if (!account.youtube?.channelId) {
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings,
+        runtime,
+        modules: moduleNames,
+        quota,
+        error: 'Set a YouTube Channel ID in the account settings first.',
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
+
+    if (runtime.liveChatId) {
+      updateAccountSettings(account.id, { youtube: { enabled: true } });
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings: loadAccountSettings(account.id),
+        runtime,
+        modules: moduleNames,
+        quota,
+        message: 'YouTube transport enabled.',
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
+
+    try {
+      // Enable YouTube transport by resolving live chat via account channel ID.
+      const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
+        await resolveTargetLiveChatId(
+          {},
+          {
+            channelId: account.youtube.channelId,
+            livestreamUrl: '',
+            videoId: '',
+          }
+        );
+
+      const token = await primeChat(liveChatId);
+      runtime.liveChatId = liveChatId;
+      runtime.nextPageToken = token;
+      runtime.primed = true;
+      runtime.youtubeChannelId = channelId || account.youtube.channelId || null;
+      runtime.resolvedMethod = method || null;
+      runtime.targetInfo = targetInfo || {};
+      saveAccountRuntime(account.id, runtime);
+      updateAccountSettings(account.id, { youtube: { enabled: true } });
+
+      const updatedQuota = addQuotaUsage(estimatedUnits);
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings: loadAccountSettings(account.id),
+        runtime,
+        modules: moduleNames,
+        quota: updatedQuota,
+        message: `YouTube transport enabled. ~${estimatedUnits} units.`,
+        resolvedMethod: method,
+        targetInfo,
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    } catch (err) {
+      const rawMessage = err?.message || String(err);
+      const friendlyMessage = /already linked/i.test(rawMessage)
+        ? rawMessage
+        : 'Unable to connect to YouTube livestream. Please make sure the channel ID is correct and the channel is currently livestreaming.';
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings,
+        runtime,
+        modules: moduleNames,
+        quota,
+        error: friendlyMessage,
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
+  });
+
+  // Manual connect override for a specific livestream URL (does not update account channel ID).
   app.post('/accounts/:id/cpanel/connect', async (req, res) => {
     const account = getAccountById(req.params.id);
     if (!account) {
@@ -316,14 +467,24 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     const runtime = loadAccountRuntime(account.id);
     const settings = loadAccountSettings(account.id);
     const targetLivestreamUrl = (req.body?.targetLivestreamUrl || '').trim();
-    const targetChannelId = (req.body?.targetChannelId || '').trim();
+    if (!targetLivestreamUrl && !account.youtube?.channelId) {
+      const quota = getQuotaInfo();
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings,
+        runtime,
+        modules: moduleNames,
+        quota,
+        error: 'Set a YouTube Channel ID in the account settings first.',
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    }
 
     try {
       const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
         await resolveTargetLiveChatId(
           {
             livestreamUrl: targetLivestreamUrl,
-            channelId: targetChannelId,
           },
           {
             channelId: account.youtube?.channelId || '',
@@ -344,17 +505,22 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       runtime.nextPageToken = token;
       runtime.primed = true;
       runtime.youtubeChannelId = channelId || account.youtube?.channelId || null;
+      runtime.resolvedMethod = method || null;
+      runtime.targetInfo = targetInfo || {};
       saveAccountRuntime(account.id, runtime);
 
-      if (channelId && channelId !== account.youtube?.channelId) {
-        updateAccount(account.id, { youtube: { channelId } });
+      if (settings.youtube?.enabled !== true) {
+        updateAccountSettings(account.id, {
+          youtube: { enabled: true },
+        });
       }
 
+      const nextSettings = loadAccountSettings(account.id);
       const quota = addQuotaUsage(estimatedUnits);
 
       const payload = buildCpanelViewModel({
         account: getAccountById(account.id),
-        settings,
+        settings: nextSettings,
         runtime,
         modules: moduleNames,
         quota,

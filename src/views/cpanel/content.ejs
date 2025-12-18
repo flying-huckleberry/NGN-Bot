@@ -1,8 +1,14 @@
+﻿<% /* Account-scoped runtime + settings for transport status. */ %>
 <% const liveChatId = runtime?.liveChatId || null; %>
 <% const primed = Boolean(runtime?.primed); %>
 <% const resolved = typeof resolvedMethod === 'string' ? resolvedMethod : null; %>
 <% const target = targetInfo || {}; %>
-<% const discordState = discordStatus?.state || (discordStatus?.enabled ? 'offline' : 'disabled'); %>
+<% const youtubeEnabled = settings?.youtube?.enabled !== false; %>
+<% const discordEnabled = settings?.discord?.enabled !== false; %>
+<% const youtubeOverride = resolved ? resolved.toLowerCase().includes('override') : false; %>
+<% const resolvedLabel = resolved ? resolved.replace(/\s*\(override\)/i, '') : null; %>
+  <% const discordState = discordStatus?.state || (discordStatus?.enabled ? 'offline' : 'disabled'); %>
+  <% /* Discord status is global (client connection), while routing toggle is per account. */ %>
 <% const discordConnected = discordState === 'ready'; %>
 <% const disabledSet = new Set((settings?.disabledModules || []).map((name) => String(name || '').toLowerCase())); %>
 <% const allowedChannelsCsv = (settings?.discord?.allowedChannelIds || []).join(','); %>
@@ -12,7 +18,7 @@
   <%- include('../partials/flash', { message, error }) %>
   <h2>Control Panel</h2>
   <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
-  <p><a href="/accounts" style="color:#93c5fd; text-decoration:none;">← Back to accounts</a></p>
+  <p><a href="/accounts" style="color:#93c5fd; text-decoration:none;">â† Back to accounts</a></p>
 
   <div class="state-status" style="margin:12px 0;">
     Runtime state:
@@ -22,10 +28,6 @@
   </div>
 
   <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
-    <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action>
-      <button style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Connect</button>
-    </form>
-
     <form action="/accounts/<%= account.id %>/cpanel/poll" method="post" data-cpanel-action>
       <button <%= liveChatId ? '' : 'disabled title="Connect first"' %> style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Poll once</button>
     </form>
@@ -44,35 +46,67 @@
         <input name="targetLivestreamUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
         <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
       </div>
+      <p style='margin:8px 0 0; font-size:0.8rem; color:#94a3b8;'>
+        This is an override connect and does not change the account YouTube Channel ID.
+      </p>
     </form>
 
-    <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action style="flex:1; min-width:260px; background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937;">
-      <label style="display:block; font-size:0.9rem; margin-bottom:6px; color:#cbd5e1;">Connect via Channel ID</label>
-      <div style="display:flex; gap:8px;">
-        <input name="targetChannelId" type="text" placeholder="UCxxxxxxxxxxxx" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
-      </div>
-    </form>
   </div>
 
   <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
     <div style="flex:1; min-width:280px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="margin:0; color:#cbd5e1;">YouTube Transport</h3>
-        <span style="font-size:0.85rem; color:<%= primed ? '#22c55e' : '#f87171' %>;">
-          <%= primed ? 'Primed' : 'Not primed' %>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:0.85rem; color:<%= youtubeEnabled ? (primed ? '#22c55e' : '#fbbf24') : '#f87171' %>;">
+            <%= youtubeEnabled ? (primed ? 'Primed' : 'Not primed') : 'Disabled' %>
+          </span>
+          <span style="position:relative; width:46px; height:24px; display:inline-block;">
+            <input
+              type="checkbox"
+              data-transport-toggle="youtube"
+              <%= youtubeEnabled ? 'checked' : '' %>
+              style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+            />
+            <span data-toggle-track style="
+              position:absolute;
+              inset:0;
+              background:<%= youtubeEnabled ? '#22c55e' : '#1f2937' %>;
+              border:1px solid #334155;
+              border-radius:999px;
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+            <span data-toggle-thumb style="
+              position:absolute;
+              top:2px;
+              left:<%= youtubeEnabled ? '24px' : '2px' %>;
+              width:20px;
+              height:20px;
+              background:#0b1224;
+              border:1px solid #475569;
+              border-radius:999px;
+              box-shadow:0 1px 4px rgba(0,0,0,0.4);
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+          </span>
         </span>
       </div>
       <div style="line-height:1.6; font-size:0.9rem; color:#d1d5db;">
         <div><strong>Target Method:</strong>
           <% if (resolved) { %>
-            <span style="color:#60a5fa"><%= resolved %></span>
+            <span style="color:#60a5fa">
+              <%= resolvedLabel %><% if (youtubeOverride) { %> (<span style="color:#fbbf24; font-weight:600; letter-spacing:0.04em;">OVERRIDE</span>)<% } %>
+            </span>
           <% } else { %>
             <span style="color:#94a3b8">Not connected</span>
           <% } %>
         </div>
         <div><strong>LiveChat ID:</strong>
-          <% if (liveChatId) { %>
+          <% if (!youtubeEnabled) { %>
+            <span style="color:#94a3b8">Disabled</span>
+          <% } else if (liveChatId) { %>
             <span style="color:#22c55e;overflow-wrap:anywhere"><%= liveChatId %></span>
           <% } else { %>
             <span style="color:#94a3b8">None</span>
@@ -98,12 +132,44 @@
     <div style="flex:1; min-width:280px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h3 style="margin:0; color:#cbd5e1;">Discord Transport</h3>
-        <span style="font-size:0.85rem; color:<%= discordConnected ? '#22c55e' : '#fbbf24' %>;">
-          <%= discordConnected ? 'Connected' : discordState %>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:0.85rem; color:<%= discordEnabled ? '#22c55e' : '#f87171' %>;">
+            <%= discordEnabled ? 'Enabled' : 'Disabled' %>
+          </span>
+          <span style="position:relative; width:46px; height:24px; display:inline-block;">
+            <input
+              type="checkbox"
+              data-transport-toggle="discord"
+              <%= discordEnabled ? 'checked' : '' %>
+              style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+            />
+            <span data-toggle-track style="
+              position:absolute;
+              inset:0;
+              background:<%= discordEnabled ? '#22c55e' : '#1f2937' %>;
+              border:1px solid #334155;
+              border-radius:999px;
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+            <span data-toggle-thumb style="
+              position:absolute;
+              top:2px;
+              left:<%= discordEnabled ? '24px' : '2px' %>;
+              width:20px;
+              height:20px;
+              background:#0b1224;
+              border:1px solid #475569;
+              border-radius:999px;
+              box-shadow:0 1px 4px rgba(0,0,0,0.4);
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+          </span>
         </span>
       </div>
       <div style="font-size:0.9rem; line-height:1.6; color:#d1d5db;">
-        <div><strong>Status:</strong>
+        <div><strong>Client Status:</strong>
           <% if (discordConnected) { %>
             <span style="color:#22c55e;">Ready</span>
           <% } else { %>
@@ -338,6 +404,65 @@
         });
       };
 
+      const bindTransportToggles = () => {
+        root.querySelectorAll('input[data-transport-toggle]').forEach((input) => {
+          input.addEventListener('change', async (event) => {
+            const target = event.currentTarget;
+            const transport = target.dataset.transportToggle;
+            if (!transport) return;
+            const desired = target.checked;
+            const previous = !desired;
+            const wrapper = target.parentElement;
+            const track = wrapper?.querySelector('[data-toggle-track]');
+            const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+            const applyVisual = (on) => {
+              if (track) {
+                track.style.background = on ? '#22c55e' : '#1f2937';
+              }
+              if (thumb) {
+                thumb.style.left = on ? '24px' : '2px';
+              }
+            };
+
+            applyVisual(desired);
+
+            const body = new URLSearchParams();
+            body.append('transport', transport);
+            body.append('enabled', String(desired));
+
+            target.disabled = true;
+            try {
+              const res = await fetch(`/accounts/<%= account.id %>/cpanel/transports`, {
+                method: 'POST',
+                headers: {
+                  Accept: 'application/json',
+                  'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body,
+              });
+              if (!res.ok) throw new Error('Request failed: ' + res.status);
+              const data = await res.json();
+              if (data?.html) {
+                const placeholder = document.createElement('div');
+                placeholder.innerHTML = data.html;
+                const nextRoot = placeholder.querySelector('#cpanel-root');
+                if (nextRoot && root.parentNode) {
+                  root.parentNode.replaceChild(nextRoot, root);
+                  attachHandlers();
+                }
+              }
+            } catch (err) {
+              console.error(err);
+              target.checked = previous;
+              applyVisual(previous);
+              window.alert(err.message || 'Request failed');
+            } finally {
+              target.disabled = false;
+            }
+          });
+        });
+      };
+
       const setLoading = (isLoading) => {
         root.querySelectorAll('button').forEach((btn) => {
           const alreadyDisabled = btn.dataset.originalDisabled === 'true';
@@ -403,6 +528,7 @@
       });
 
       bindModuleToggles();
+      bindTransportToggles();
     };
 
     attachHandlers();

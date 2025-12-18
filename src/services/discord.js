@@ -123,6 +123,8 @@ async function startDiscordTransport({ dispatch }) {
     const account = findAccountByDiscordGuildId(message.guildId);
     if (!account) return;
     const settings = loadAccountSettings(account.id);
+    // Per-account routing toggle; global client stays connected.
+    if (settings?.discord?.enabled === false) return;
     if (!isChannelAllowed(message.channelId, settings)) return;
 
     const text = (message.content || '').trim();
