@@ -18,7 +18,7 @@
   <%- include('../partials/flash', { message, error }) %>
   <h2>Control Panel</h2>
   <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
-  <p><a href="/accounts" style="color:#93c5fd; text-decoration:none;">â† Back to accounts</a></p>
+  <p><a href="/accounts" style="color:#93c5fd; text-decoration:none;">&larr; Back to accounts</a></p>
 
   <div class="state-status" style="margin:12px 0;">
     Runtime state:
@@ -117,10 +117,18 @@
         <% } %>
       </div>
       <div style="margin-top:12px; font-size:0.85rem; color:#94a3b8;">
-        <% if (target.url) { %><div>URL: <%= target.url %></div><% } %>
-        <% if (target.videoId) { %><div>Video ID: <%= target.videoId %></div><% } %>
-        <% if (target.channelId) { %><div>Channel ID: <%= target.channelId %></div><% } %>
-        <% if (target.titleMatch) { %><div>Title Match: "<%= target.titleMatch %>"</div><% } %>
+        <div>
+          <strong>Livestream URL:</strong>
+          <% if (target.url) { %>
+            <a href="<%= target.url %>" target="_blank" rel="noopener noreferrer" style="color:#93c5fd; text-decoration:none;"><%= target.url %></a>
+            <button type="button" data-copy-url="<%= target.url %>" style="margin-left:6px; padding:2px 6px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e5e7eb; cursor:pointer;">Copy</button>
+          <% } else { %>
+            <span>Unavailable</span>
+          <% } %>
+        </div>
+        <div><strong>Video ID:</strong> <%= target.videoId || 'Unavailable' %></div>
+        <% if (target.channelId) { %><div><strong>Channel ID:</strong> <%= target.channelId %></div><% } %>
+        <% if (target.titleMatch) { %><div><strong>Title Match:</strong> "<%= target.titleMatch %>"</div><% } %>
       </div>
       <% if (lastPoll) { %>
         <div style="line-height:1.6; font-size:0.9rem; margin-top:12px;">
@@ -463,6 +471,40 @@
         });
       };
 
+      const bindCopyButtons = () => {
+        root.querySelectorAll('button[data-copy-url]').forEach((btn) => {
+          if (btn.dataset.bound === 'true') return;
+          btn.dataset.bound = 'true';
+          btn.addEventListener('click', async () => {
+            const url = btn.dataset.copyUrl || '';
+            if (!url) return;
+            try {
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(url);
+              } else {
+                const field = document.createElement('textarea');
+                field.value = url;
+                field.setAttribute('readonly', '');
+                field.style.position = 'absolute';
+                field.style.left = '-9999px';
+                document.body.appendChild(field);
+                field.select();
+                document.execCommand('copy');
+                document.body.removeChild(field);
+              }
+              const original = btn.textContent;
+              btn.textContent = 'Copied';
+              setTimeout(() => {
+                btn.textContent = original;
+              }, 1200);
+            } catch (err) {
+              console.error(err);
+              window.alert('Failed to copy URL.');
+            }
+          });
+        });
+      };
+
       const setLoading = (isLoading) => {
         root.querySelectorAll('button').forEach((btn) => {
           const alreadyDisabled = btn.dataset.originalDisabled === 'true';
@@ -529,6 +571,7 @@
 
       bindModuleToggles();
       bindTransportToggles();
+      bindCopyButtons();
     };
 
     attachHandlers();

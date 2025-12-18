@@ -1,7 +1,7 @@
 ﻿// src/index.js
 require('dotenv').config();
 
-// â”€â”€ startup sanity: ensure we're launched from project root â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- startup sanity: ensure we're launched from project root --
 const fs = require('fs');
 const path = require('path');
 const {
@@ -18,7 +18,7 @@ function safeRequire(label, modulePath) {
     return require(modulePath);
   } catch (err) {
     logger.error(
-      `âŒ Failed to load ${label} from ${modulePath}: ${err.stack || err.message || err}`
+      `Failed to load ${label} from ${modulePath}: ${err.stack || err.message || err}`
     );
     throw err;
   }
@@ -26,12 +26,12 @@ function safeRequire(label, modulePath) {
 
 const rootPkg = path.join(ROOT_DIR, 'package.json');
 if (!fs.existsSync(rootPkg)) {
-  logger.error(`âŒ Startup error: expected to find package.json in ROOT_DIR (${ROOT_DIR})`);
+  logger.error(`Startup error: expected to find package.json in ROOT_DIR (${ROOT_DIR})`);
   logger.error('Please run this script from the project root directory.');
   process.exit(1);
 }
 
-// â”€â”€ deps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- deps ---------------------------------------------------
 const express = require('express');
 const open = (...args) => import('open').then((m) => m.default(...args));
 
@@ -81,7 +81,7 @@ const { loadAccountSettings } = safeRequire(
   './state/accountSettings'
 );
 
-// â”€â”€ app bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- app bootstrap -----------------------------------------
 (async () => {
   try {
     const app = express();
@@ -141,7 +141,7 @@ const { loadAccountSettings } = safeRequire(
       }
     });
 
-    // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- helpers --------------------------------------------
 
     // Poll exactly one page and dispatch each message through the module router.
     function createYoutubeTransport(liveChatId) {
@@ -334,7 +334,7 @@ const { loadAccountSettings } = safeRequire(
     }
   } catch (err) {
     logger.error(
-      `âŒ Fatal bootstrap error in index.js: ${err.stack || err.message || err}`
+      `Fatal bootstrap error in index.js: ${err.stack || err.message || err}`
     );
     process.exit(1);
   }

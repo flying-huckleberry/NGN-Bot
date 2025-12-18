@@ -36,6 +36,8 @@ const PRIME_ESTIMATE_UNITS = 5;
  * Throws with a helpful message if none is set or if resolution fails.
  */
 async function resolveTargetLiveChatId(overrides = {}, config = {}) {
+  const buildUrl = (videoId) =>
+    videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
   const defaults = {
     livestreamUrl: TARGET_LIVESTREAM_URL,
     channelId: TARGET_CHANNEL_ID,
@@ -62,7 +64,7 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
   } else if (overrideVideoId) {
     result = await getLiveChatIdForVideo(overrideVideoId);
     method = 'Video ID (override)';
-    targetInfo = { videoId: overrideVideoId };
+    targetInfo = { videoId: overrideVideoId, url: buildUrl(overrideVideoId) };
     discoverCost = 1;
   } else if (overrideChannelId) {
     result = await getLiveChatIdForChannel(
@@ -73,6 +75,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
     targetInfo = {
       channelId: overrideChannelId,
       titleMatch: overrideTitleMatch || '',
+      videoId: result?.videoId || null,
+      url: buildUrl(result?.videoId),
     };
     discoverCost = 101;
   } else if (merged.livestreamUrl) {
@@ -83,7 +87,7 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
   } else if (merged.videoId) {
     result = await getLiveChatIdForVideo(merged.videoId);
     method = 'Video ID';
-    targetInfo = { videoId: merged.videoId };
+    targetInfo = { videoId: merged.videoId, url: buildUrl(merged.videoId) };
     discoverCost = 1;
   } else if (merged.channelId) {
     result = await getLiveChatIdForChannel(
@@ -94,6 +98,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
     targetInfo = {
       channelId: merged.channelId,
       titleMatch: merged.titleMatch || '',
+      videoId: result?.videoId || null,
+      url: buildUrl(result?.videoId),
     };
     discoverCost = 101;
   } else {
