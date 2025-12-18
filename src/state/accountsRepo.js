@@ -98,6 +98,27 @@ function generateAccountId(name) {
   return token;
 }
 
+function extractAccountSuffix(accountId) {
+  const parts = String(accountId || '').trim().split('-').filter(Boolean);
+  const last = parts[parts.length - 1] || '';
+  return /^[a-z0-9]{6}$/.test(last) ? last : null;
+}
+
+function isAccountIdAvailable(accountId, ignoreId = null) {
+  return !loadAccounts().accounts.some(
+    (acc) => acc.id === accountId && acc.id !== ignoreId
+  );
+}
+
+function buildAccountIdFromName(name, currentId) {
+  const base = normalizeKey(name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const suffix = extractAccountSuffix(currentId) || Math.random().toString(36).slice(2, 8);
+  const candidate = base ? `${base}-${suffix}` : `account-${suffix}`;
+  if (candidate === currentId) return candidate;
+  if (isAccountIdAvailable(candidate, currentId)) return candidate;
+  return generateAccountId(name);
+}
+
 function validateUniqueName(name, ignoreId = null) {
   const key = normalizeKey(name);
   if (!key) return null;
@@ -169,6 +190,7 @@ function updateAccount(accountId, updates = {}) {
 
   const current = data.accounts[idx];
   const next = { ...current };
+  let previousId = null;
 
   if (updates.name !== undefined) {
     const safeName = normalizeName(updates.name);
@@ -176,6 +198,11 @@ function updateAccount(accountId, updates = {}) {
     const nameConflict = validateUniqueName(safeName, accountId);
     if (nameConflict) throw new Error(nameConflict);
     next.name = safeName;
+    const nextId = buildAccountIdFromName(safeName, current.id);
+    if (nextId !== current.id) {
+      previousId = current.id;
+      next.id = nextId;
+    }
   }
 
   if (updates.youtube?.channelId !== undefined) {
@@ -192,10 +219,21 @@ function updateAccount(accountId, updates = {}) {
     next.discord = { ...(next.discord || {}), guildId };
   }
 
+  if (previousId && previousId !== next.id) {
+    const oldDir = path.join(ACCOUNTS_DIR, previousId);
+    const nextDir = path.join(ACCOUNTS_DIR, next.id);
+    if (fs.existsSync(nextDir)) {
+      throw new Error('Account ID conflict. Try a different name.');
+    }
+    if (fs.existsSync(oldDir)) {
+      fs.renameSync(oldDir, nextDir);
+    }
+  }
+
   data.accounts[idx] = next;
   saveAccounts(data);
   ensureAccountDir(next.id);
-  return next;
+  return { account: next, previousId };
 }
 
 function deleteAccount(accountId) {

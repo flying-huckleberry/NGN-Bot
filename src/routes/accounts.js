@@ -12,12 +12,14 @@ const {
   loadAccountSettings,
   updateAccountSettings,
   saveAccountSettings,
+  resetSettingsCache,
 } = require('../state/accountSettings');
 const { saveAccountSecrets } = require('../state/accountSecrets');
 const {
   loadAccountRuntime,
   saveAccountRuntime,
   resetAccountRuntime,
+  resetRuntimeCache,
   accountRuntimeExists,
 } = require('../state/accountRuntime');
 const { deleteScope } = require('../state/scopedStore');
@@ -189,18 +191,19 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     const youtubeChannelId = String(req.body?.youtubeChannelId || '').trim();
     const discordGuildId = String(req.body?.discordGuildId || '').trim();
     const allowedChannelIds = parseCsv(req.body?.discordAllowedChannelIds || '');
-    const commandPrefix = String(req.body?.commandPrefix || '').trim() || '!';
+    const rawPrefix = String(req.body?.commandPrefix || '').trim();
+    const commandPrefix = rawPrefix ? rawPrefix[0] : '!';
 
     try {
       // Account registry holds unique IDs (name/youtube/discord) for validation.
-      const updated = updateAccount(account.id, {
+      const { account: updated, previousId } = updateAccount(account.id, {
         name,
         youtube: { channelId: youtubeChannelId },
         discord: { guildId: discordGuildId },
       });
 
       // Settings are account-scoped and editable in the control panel.
-      updateAccountSettings(account.id, {
+      updateAccountSettings(updated.id, {
         commandPrefix,
         youtube: {
           enabled: settings.youtube?.enabled ?? true,
@@ -211,12 +214,24 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
         },
       });
 
-      const runtime = loadAccountRuntime(account.id);
-      const settings = loadAccountSettings(account.id);
+      if (previousId && previousId !== updated.id) {
+        resetSettingsCache(previousId);
+        resetRuntimeCache(previousId);
+      }
+
+      if (previousId && previousId !== updated.id && wantsJson(req)) {
+        return res.json({ redirect: `/accounts/${updated.id}/cpanel` });
+      }
+      if (previousId && previousId !== updated.id) {
+        return res.redirect(`/accounts/${updated.id}/cpanel`);
+      }
+
+      const runtime = loadAccountRuntime(updated.id);
+      const refreshedSettings = loadAccountSettings(updated.id);
       const quota = getQuotaInfo();
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account: updated,
-        settings,
+        settings: refreshedSettings,
         runtime,
         modules: moduleNames,
         quota,

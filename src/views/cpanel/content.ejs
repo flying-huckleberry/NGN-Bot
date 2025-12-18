@@ -280,12 +280,13 @@
           <input name="discordGuildId" type="text" value="<%= account.discord?.guildId || '' %>" placeholder="1234567890" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
         </label>
         <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
-          Discord Allowed Channel IDs (CSV)
+          Allowed Channel IDs
           <input name="discordAllowedChannelIds" type="text" value="<%= allowedChannelsCsv %>" placeholder="123,456" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          <span style="font-size:0.75rem; color:#94a3b8;">CSV; leave blank to allow all channels.</span>
         </label>
         <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
           Command Prefix
-          <input name="commandPrefix" type="text" value="<%= settings?.commandPrefix || '!' %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          <input name="commandPrefix" type="text" maxlength="1" value="<%= settings?.commandPrefix || '!' %>" style="padding:8px 10px; width:60px; text-align:center; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
         </label>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -542,6 +543,10 @@
               });
               if (!res.ok) throw new Error('Request failed: ' + res.status);
               const data = await res.json();
+              if (data?.redirect) {
+                window.location.href = data.redirect;
+                return;
+              }
               if (data?.html) {
                 const placeholder = document.createElement('div');
                 placeholder.innerHTML = data.html;
