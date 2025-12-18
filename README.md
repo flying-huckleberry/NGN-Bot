@@ -11,7 +11,7 @@ A modular Node.js bot that connects to both YouTube Live Chat and Discord. It pr
 - Crypto paper-trading mini-game with CoinGecko prices and per-scope portfolios.
 - Semantic word-guess game using OpenAI embeddings.
 - Multi-account control panel with per-account settings (prefix, race config, disabled modules, Discord channel rules, etc).
-- Web UI: Accounts picker, account control panels, and Playground.
+- Web UI: Accounts picker, account control panels, module settings pages, and Playground.
 - OAuth2 for YouTube; Discord token-based auth.
 - Scoped persistence: per-playground, per-YouTube channel, and per-Discord guild state.
 - Modular commands in `src/modules/`; racing mini-game with upgrades and payouts.
@@ -113,7 +113,8 @@ Legacy `dev_state.json` is migrated to a default account on startup.
 ## Web UI
 
 - `/accounts`: account picker + create new accounts.
-- `/accounts/:id/cpanel`: account control panel (connect/poll, quotas, settings, module toggles).
+- `/accounts/:id/cpanel`: account control panel (connect/poll, transport toggles, settings, module toggles).
+- `/accounts/:id/modules/:module`: module-specific settings (ex: racing, crypto).
 - `/sandbox`: fake chat playground to send commands and view replies without API calls.
 - `/auth`: starts YouTube OAuth2.
 - `/oauth2callback`: stores OAuth tokens.
