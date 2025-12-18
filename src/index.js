@@ -72,11 +72,11 @@ const { migrateDevStateToDefaultAccount } = safeRequire(
   './state/accountMigration'
 );
 const { listAccounts, getAccountById } = safeRequire('Accounts repo', './state/accountsRepo');
-const { loadAccountRuntime, saveAccountRuntime } = safeRequire(
+const { loadAccountRuntime, saveAccountRuntime, resetAccountRuntime } = safeRequire(
   'Account runtime',
   './state/accountRuntime'
 );
-const { loadAccountSettings } = safeRequire(
+const { loadAccountSettings, updateAccountSettings } = safeRequire(
   'Account settings',
   './state/accountSettings'
 );
@@ -154,6 +154,34 @@ const { loadAccountSettings } = safeRequire(
       };
     }
 
+    function isLiveChatStale(err) {
+      const reason = err?.errors?.[0]?.reason || '';
+      const message = err?.errors?.[0]?.message || err?.message || '';
+      const text = `${reason} ${message}`.toLowerCase();
+      if (
+        text.includes('livechatended') ||
+        text.includes('livechatnotfound') ||
+        text.includes('livechatdisabled')
+      ) {
+        return true;
+      }
+      return (
+        text.includes('live chat') &&
+        (text.includes('ended') ||
+          text.includes('not found') ||
+          text.includes('no longer live') ||
+          text.includes('disabled'))
+      );
+    }
+
+    function resetYoutubeTransport(accountId, account) {
+      resetAccountRuntime(accountId);
+      updateAccountSettings(accountId, { youtube: { enabled: false } });
+      logger.info(
+        `YouTube transport reset for account "${account?.name || accountId}".`
+      );
+    }
+
     async function pollOnceWithDispatch(accountId, liveChatId, dispatchFn) {
       const account = getAccountById(accountId);
       if (!account) throw new Error('Account not found.');
@@ -180,6 +208,14 @@ const { loadAccountSettings } = safeRequire(
             maxResults: 200,
           });
           runtime.nextPageToken = newToken || runtime.nextPageToken;
+        } else if (isLiveChatStale(err)) {
+          resetYoutubeTransport(accountId, account);
+          return {
+            ok: false,
+            received: 0,
+            handled: 0,
+            ended: true,
+          };
         } else {
           throw err;
         }
@@ -270,6 +306,10 @@ const { loadAccountSettings } = safeRequire(
           (Number.isFinite(+POLLING_FALLBACK_MS) ? +POLLING_FALLBACK_MS : 2000);
         setTimeout(() => pollLoop(accountId, liveChatId), delay);
       } catch (err) {
+        if (isLiveChatStale(err)) {
+          resetYoutubeTransport(accountId, account);
+          return;
+        }
         logger.error('Polling error:', err?.errors?.[0] || err.message || err);
         setTimeout(() => pollLoop(accountId, liveChatId), 5000);
       }

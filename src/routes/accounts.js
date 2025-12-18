@@ -704,17 +704,21 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
 
     try {
       const result = await pollOnce(account.id, runtime.liveChatId);
-      const quota = addQuotaUsage(5);
+      const refreshedRuntime = loadAccountRuntime(account.id);
+      const refreshedSettings = loadAccountSettings(account.id);
+      const quota = result?.ok ? addQuotaUsage(5) : getQuotaInfo();
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account,
-        settings,
-        runtime,
+        settings: refreshedSettings,
+        runtime: refreshedRuntime,
         modules: moduleNames,
         quota,
-        lastPoll: {
-          received: result.received,
-          handled: result.handled,
-        },
+        lastPoll: result?.ok
+          ? {
+            received: result.received,
+            handled: result.handled,
+          }
+          : null,
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
       }));
     } catch (err) {
