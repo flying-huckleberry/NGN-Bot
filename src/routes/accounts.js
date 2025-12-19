@@ -489,7 +489,13 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       }));
     }
 
-    if (runtime.liveChatId) {
+    const shouldReuseRuntime =
+      Boolean(runtime.liveChatId) &&
+      runtime.primed === true &&
+      Boolean(runtime.youtubeChannelId) &&
+      runtime.youtubeChannelId === account.youtube?.channelId;
+
+    if (shouldReuseRuntime) {
       updateAccountSettings(account.id, { youtube: { enabled: true } });
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account,
@@ -502,6 +508,7 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       }));
     }
 
+    const titleMatch = String(req.body?.youtubeTitleMatch || '').trim();
     try {
       // Enable YouTube transport by resolving live chat via account channel ID.
       const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
@@ -509,6 +516,7 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
           {},
           {
             channelId: account.youtube.channelId,
+            titleMatch,
             livestreamUrl: '',
             videoId: '',
           }
@@ -540,6 +548,8 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       const rawMessage = err?.message || String(err);
       const friendlyMessage = /already linked/i.test(rawMessage)
         ? rawMessage
+        : titleMatch
+          ? 'Unable to connect to YouTube livestream with the provided title match. Please confirm the livestream title and that the channel is currently streaming.'
         : 'Unable to connect to YouTube livestream. Please make sure the channel ID is correct and the channel is currently livestreaming.';
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account,

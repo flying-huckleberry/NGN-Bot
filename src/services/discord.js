@@ -3,7 +3,6 @@ const {
   Client,
   GatewayIntentBits,
   Partials,
-  PermissionsBitField,
 } = require('discord.js');
 const {
   DISCORD_BOT_TOKEN,
@@ -35,6 +34,8 @@ function isChannelAllowed(channelId, settings) {
 }
 
 function normalizeDiscordMessage(message) {
+  const isGuildOwner =
+    Boolean(message.guild?.ownerId) && message.guild?.ownerId === message.author?.id;
   const authorDetails = {
     displayName:
       message.member?.displayName ||
@@ -42,9 +43,7 @@ function normalizeDiscordMessage(message) {
       message.author?.username ||
       'DiscordUser',
     channelId: message.author?.id,
-    isChatOwner:
-      message.member?.permissions?.has(PermissionsBitField.Flags.Administrator) ||
-      false,
+    isChatOwner: isGuildOwner,
   };
 
   return {

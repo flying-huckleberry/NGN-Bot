@@ -88,18 +88,17 @@
             <span style="color:#94a3b8">Not connected</span>
           <% } %>
         </div>
-        <div><strong>LiveChat ID:</strong>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong>LiveChat ID:</strong>
           <% if (!youtubeEnabled) { %>
             <span style="color:#94a3b8">Disabled</span>
           <% } else if (liveChatId) { %>
-            <span style="color:#22c55e;overflow-wrap:anywhere"><%= liveChatId %></span>
+            <button type="button" data-livechat-toggle style="padding:2px 6px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e5e7eb; cursor:pointer;">Show</button>
+            <span data-livechat-value style="display:none; color:#22c55e; overflow-wrap:anywhere;"><%= liveChatId %></span>
           <% } else { %>
             <span style="color:#94a3b8">None</span>
           <% } %>
         </div>
-        <% if (runtime?.youtubeChannelId || account.youtube?.channelId) { %>
-          <div><strong>YT Channel ID:</strong> <span style="color:#22c55e"><%= runtime?.youtubeChannelId || account.youtube?.channelId %></span></div>
-        <% } %>
       </div>
       <div style="margin-top:12px; font-size:0.85rem; color:#94a3b8;">
         <div>
@@ -114,6 +113,10 @@
         <div><strong>Video ID:</strong> <%= target.videoId || 'Unavailable' %></div>
         <% if (target.channelId) { %><div><strong>Channel ID:</strong> <%= target.channelId %></div><% } %>
         <% if (target.titleMatch) { %><div><strong>Title Match:</strong> "<%= target.titleMatch %>"</div><% } %>
+      </div>
+      <div style="margin-top:14px; padding:10px 12px; border-radius:10px; background:#0f172a; border:1px solid #1f2937;">
+        <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:6px;">Title Match (optional)</div>
+        <input data-youtube-title-match type="text" placeholder="Exact or partial livestream title" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
       </div>
       <div style="margin-top:14px; padding:10px 12px; border-radius:10px; background:#0f172a; border:1px solid #1f2937;">
         <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:6px;">Connect via Livestream URL</div>
@@ -431,6 +434,13 @@
             const body = new URLSearchParams();
             body.append('transport', transport);
             body.append('enabled', String(desired));
+            if (transport === 'youtube') {
+              const titleInput = root.querySelector('[data-youtube-title-match]');
+              const titleMatch = String(titleInput?.value || '').trim();
+              if (titleMatch) {
+                body.append('youtubeTitleMatch', titleMatch);
+              }
+            }
 
             target.disabled = true;
             try {
@@ -495,6 +505,20 @@
               console.error(err);
               window.alert('Failed to copy URL.');
             }
+          });
+        });
+      };
+
+      const bindLiveChatToggle = () => {
+        root.querySelectorAll('button[data-livechat-toggle]').forEach((btn) => {
+          if (btn.dataset.bound === 'true') return;
+          btn.dataset.bound = 'true';
+          btn.addEventListener('click', () => {
+            const value = btn.parentElement?.querySelector('[data-livechat-value]');
+            if (!value) return;
+            const isHidden = value.style.display === 'none';
+            value.style.display = isHidden ? 'inline' : 'none';
+            btn.textContent = isHidden ? 'Hide' : 'Show';
           });
         });
       };
@@ -571,6 +595,7 @@
       bindTransportToggles();
       bindCopyButtons();
       bindModuleCardHover();
+      bindLiveChatToggle();
     };
 
     attachHandlers();

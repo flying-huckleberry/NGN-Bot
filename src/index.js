@@ -315,9 +315,17 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       }
     }
 
-    async function startAccountBot(account) {
+    async function startAccountBot(account, { autoPoll }) {
       if (!account?.youtube?.channelId) {
         logger.warn(`Skipping account "${account?.name || account?.id}": no YouTube channel ID.`);
+        return;
+      }
+
+      const settings = loadAccountSettings(account.id);
+      if (settings.youtube?.enabled === false) {
+        logger.info(
+          `Skipping account "${account?.name || account?.id}": YouTube transport disabled.`
+        );
         return;
       }
 
@@ -343,17 +351,18 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         `PROD: ${account.name} connected via ${method || 'unknown method'} - listening roughly every ${interval}ms`
       );
 
-      pollLoop(account.id, liveChatId);
+      if (autoPoll) {
+        pollLoop(account.id, liveChatId);
+      } else {
+        logger.info(
+          `DEV: ${account.name} connected via ${method || 'unknown method'} - manual polling only`
+        );
+      }
     }
 
     // Start in PROD (DEV returns early to use the /accounts panel)
     async function startBot() {
       try {
-        if (MODE === 'dev') {
-          logger.info('Running in DEV mode - open /accounts for manual control');
-          return;
-        }
-
         const accounts = listAccounts();
         if (!accounts.length) {
           logger.warn('No accounts configured. Add one at /accounts.');
@@ -362,7 +371,8 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
 
         for (const account of accounts) {
           try {
-            await startAccountBot(account);
+            const autoPoll = MODE !== 'dev';
+            await startAccountBot(account, { autoPoll });
           } catch (err) {
             logger.error('Failed to start account ' + account.name + ': ' + (err?.message || err));
           }

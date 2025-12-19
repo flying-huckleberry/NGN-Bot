@@ -1,7 +1,7 @@
 // src/modules/crypto/module.js
 // CoinGecko-backed paper trading mini-game (scoped per transport).
 
-const { ownerOnly } = require('../../utils/permissions');
+const { adminOnly } = require('../../utils/permissions');
 const env = require('../../config/env');
 const {
   ensurePlayer,
@@ -462,7 +462,7 @@ module.exports = {
       description: 'ADMIN-ONLY: Reset all crypto data for this scope.',
       usage: 'cryptoreset',
       aliases: ['resetcrypto'],
-      middleware: [ownerOnly()], // ← only the owner can run this command
+      middleware: [adminOnly()], // only admins can run this command
       async run(ctx) {
         const scopeKey = getScopeKey(ctx);
         resetAll(scopeKey);

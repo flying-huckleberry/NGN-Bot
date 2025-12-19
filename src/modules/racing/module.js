@@ -1,5 +1,5 @@
 // src/modules/racing/module.js
-const { ownerOnly } = require('../../utils/permissions');
+const { adminOnly, ownerOnly } = require('../../utils/permissions');
 
 const {
   ensurePlayer,
@@ -691,10 +691,10 @@ module.exports = {
 
     racereset: {
       name: 'racereset',
-      description: 'OWNER-ONLY: Reset all racing data.',
+      description: 'ADMIN-ONLY: Reset all racing data.',
       usage: 'racereset',
       aliases: ['resetrace'],
-      middleware: [ownerOnly()], // ← only the owner can run this command
+      middleware: [adminOnly()], // only admins can run this command
       async run(ctx) {
         const scopeKey = getScopeKey(ctx);
         resetAll(scopeKey);
@@ -712,7 +712,7 @@ module.exports = {
       usage: 'ihaveagun',
       aliases: [],
       hidden: true,
-      middleware: [ownerOnly()], // ← only the owner can run this command
+      middleware: [ownerOnly()], // only the owner can run this command
       async run(ctx) {
         const userId = getPlayerId(ctx);
         const userName = getPlayerName(ctx);

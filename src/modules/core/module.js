@@ -1,5 +1,5 @@
 // src/modules/core/module.js
-const { ownerOnly } = require('../../utils/permissions');
+const { adminOnly } = require('../../utils/permissions');
 const logCommand = require('../../utils/logCommand');
 const partsConfig = require('../../services/racing/parts');
 
@@ -110,7 +110,7 @@ module.exports = {
             .filter(([, def]) => !def.hidden) // skip hidden
             .map(([name, def]) => {
               const middle = def.middleware || [];
-              const isAdmin = middle.some((fn) => fn && fn.name && fn.name.includes('ownerOnly'));
+              const isAdmin = middle.some((fn) => fn && fn.name && fn.name.includes('adminOnly'));
               return isAdmin ? `(Admin Only) ${name}` : name;
             });
 
@@ -147,11 +147,11 @@ module.exports = {
       },
     },
 
-    // EXAMPLE: owner-only command
+    // EXAMPLE: admin-only command
     whoami: {
       name: 'whoami',
-      description: 'Debug info for the owner.',
-      middleware: [ownerOnly()], // ← only the owner can run this command
+      description: 'Debug info for admins.',
+      middleware: [adminOnly()], // only admins can run this command
       async run(ctx) {
         const a = ctx.msg?.authorDetails;
         await ctx.reply(
@@ -161,3 +161,7 @@ module.exports = {
     },
   },
 };
+
+
+
+
