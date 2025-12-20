@@ -23,7 +23,7 @@
     </div>
     <% if (mode === 'dev') { %>
       <div style="min-width:260px; background:#0b1224; padding:12px; border-radius:12px; border:1px solid #1f2937;">
-        <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:10px; letter-spacing:0.08em;">DEV TOOLS</div>
+      <h3 style="margin:0 0 10px; color:#cbd5e1;">Dev Tools</h3>
         <div style="display:flex; flex-direction:column; gap:10px;">
           <form action="/accounts/<%= account.id %>/cpanel/poll" method="post" data-cpanel-action>
             <button <%= liveChatId ? '' : 'disabled title="Connect first"' %> style="width:100%; background:#2563eb; color:#fff; border:1px solid #1d4ed8; padding:14px 12px; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer;">Poll once</button>
@@ -92,8 +92,9 @@
           </span>
         </span>
       </div>
-      <div style="line-height:1.6; font-size:0.9rem; color:#d1d5db;">
-        <div><strong>Target Method:</strong>
+      <div style="display:grid; grid-template-columns:140px 1fr; gap:6px 12px; align-items:center; font-size:0.9rem; color:#d1d5db;">
+        <div style="color:#cbd5e1;">Target Method</div>
+        <div>
           <% if (resolved) { %>
             <span style="color:#60a5fa">
               <%= resolvedLabel %><% if (youtubeOverride) { %> (<span style="color:#fbbf24; font-weight:600; letter-spacing:0.04em;">OVERRIDE</span>)<% } %>
@@ -102,8 +103,9 @@
             <span style="color:#94a3b8">Not connected</span>
           <% } %>
         </div>
+
+        <div style="color:#cbd5e1;">LiveChat ID</div>
         <div style="display:flex; align-items:center; gap:8px;">
-          <strong>LiveChat ID:</strong>
           <% if (!youtubeEnabled) { %>
             <span style="color:#94a3b8">Disabled</span>
           <% } else if (liveChatId) { %>
@@ -114,10 +116,13 @@
           <% } %>
         </div>
       </div>
-      <div style="margin-top:12px; font-size:0.85rem; color:#94a3b8;">
-        <div><strong>Livestream Title:</strong> <%= target.title || 'Unavailable' %></div>
+
+      <div style="margin-top:12px; display:grid; grid-template-columns:140px 1fr; gap:6px 12px; align-items:center; font-size:0.85rem; color:#94a3b8;">
+        <div style="color:#cbd5e1;">Livestream Title</div>
+        <div><%= target.title || 'Unavailable' %></div>
+
+        <div style="color:#cbd5e1;">Livestream URL</div>
         <div>
-          <strong>Livestream URL:</strong>
           <% if (target.url) { %>
             <a href="<%= target.url %>" target="_blank" rel="noopener noreferrer" style="color:#93c5fd; text-decoration:none;"><%= target.url %></a>
             <button type="button" data-copy-url="<%= target.url %>" style="margin-left:6px; padding:2px 6px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e5e7eb; cursor:pointer;">Copy</button>
@@ -125,9 +130,19 @@
             <span>Unavailable</span>
           <% } %>
         </div>
-        <div><strong>Video ID:</strong> <%= target.videoId || 'Unavailable' %></div>
-        <% if (target.channelId) { %><div><strong>Channel ID:</strong> <%= target.channelId %></div><% } %>
-        <% if (target.titleMatch) { %><div><strong>Title Match:</strong> "<%= target.titleMatch %>"</div><% } %>
+
+        <div style="color:#cbd5e1;">Video ID</div>
+        <div><%= target.videoId || 'Unavailable' %></div>
+
+        <% if (target.channelId) { %>
+          <div style="color:#cbd5e1;">Channel ID</div>
+          <div><%= target.channelId %></div>
+        <% } %>
+
+        <% if (target.titleMatch) { %>
+          <div style="color:#cbd5e1;">Title Match</div>
+          <div>"<%= target.titleMatch %>"</div>
+        <% } %>
       </div>
       <div style="margin-top:14px; padding:10px 12px; border-radius:10px; background:#0f172a; border:1px solid #1f2937;">
         <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:6px;">Title Match (optional)</div>
@@ -207,8 +222,9 @@
           </span>
         </span>
       </div>
-      <div style="font-size:0.9rem; line-height:1.6; color:#d1d5db;">
-        <div><strong>Client Status:</strong>
+      <div style="display:grid; grid-template-columns:140px 1fr; gap:6px 12px; align-items:center; font-size:0.9rem; color:#d1d5db;">
+        <div style="color:#cbd5e1;">Client Status</div>
+        <div>
           <% if (discordConnected) { %>
             <span style="color:#22c55e;">Ready</span>
           <% } else { %>
@@ -216,13 +232,16 @@
           <% } %>
         </div>
         <% if (discordStatus?.username) { %>
-          <div><strong>Bot:</strong> <%= discordStatus.username %></div>
+          <div style="color:#cbd5e1;">Bot</div>
+          <div><%= discordStatus.username %></div>
         <% } %>
         <% if (discordStatus?.readyAt) { %>
-          <div><strong>Ready at:</strong> <%= discordStatus.readyAt %></div>
+          <div style="color:#cbd5e1;">Ready at</div>
+          <div><%= discordStatus.readyAt %></div>
         <% } %>
         <% if (discordStatus?.lastError) { %>
-          <div style="color:#b91c1c;"><strong>Last error:</strong> <%= discordStatus.lastError %></div>
+          <div style="color:#b91c1c;">Last error</div>
+          <div style="color:#b91c1c;"><%= discordStatus.lastError %></div>
         <% } %>
       </div>
     </div>

@@ -1,0 +1,479 @@
+const {
+  getAccountById,
+  validateUniqueChannelId,
+} = require('../../state/accountsRepo');
+const {
+  loadAccountSettings,
+  updateAccountSettings,
+} = require('../../state/accountSettings');
+const {
+  loadAccountRuntime,
+  saveAccountRuntime,
+  resetAccountRuntime,
+} = require('../../state/accountRuntime');
+const { loadAccountCommands } = require('../../state/customCommands');
+const { getQuotaInfo, addQuotaUsage } = require('../../state/quota');
+const { resolveTargetLiveChatId } = require('../../services/liveChatTarget');
+const { primeChat } = require('../../services/youtube');
+const {
+  buildCpanelViewModel,
+  respondCpanel,
+} = require('./helpers');
+
+function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }) {
+  return {
+    async getCpanel(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const runtime = loadAccountRuntime(account.id);
+      const settings = loadAccountSettings(account.id);
+      const quota = getQuotaInfo();
+      const customCommands = loadAccountCommands(account.id);
+      const data = buildCpanelViewModel({
+        account,
+        settings,
+        runtime,
+        modules: moduleNames,
+        customCommands,
+        quota,
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      });
+      return respondCpanel(app, req, res, data);
+    },
+
+    async toggleModule(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const rawName = String(req.body?.module || '').trim();
+      const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
+      const targetName =
+        moduleNames.find((n) => n.toLowerCase() === rawName.toLowerCase()) || null;
+
+      const settings = loadAccountSettings(account.id);
+      const disabled = new Set(
+        (settings.disabledModules || []).map((name) => String(name || '').toLowerCase())
+      );
+
+      if (!targetName) {
+        const runtime = loadAccountRuntime(account.id);
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: 'Unknown module.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      const targetKey = targetName.toLowerCase();
+      if (enabled) {
+        disabled.delete(targetKey);
+      } else {
+        disabled.add(targetKey);
+      }
+
+      updateAccountSettings(account.id, {
+        disabledModules: Array.from(disabled),
+      });
+
+      const runtime = loadAccountRuntime(account.id);
+      const quota = getQuotaInfo();
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings: loadAccountSettings(account.id),
+        runtime,
+        modules: moduleNames,
+        customCommands: loadAccountCommands(account.id),
+        quota,
+        message: `${targetName} ${enabled ? 'enabled' : 'disabled'}.`,
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    },
+
+    async toggleTransport(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+
+      const transport = String(req.body?.transport || '').trim().toLowerCase();
+      const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
+      const runtime = loadAccountRuntime(account.id);
+      const settings = loadAccountSettings(account.id);
+      const quota = getQuotaInfo();
+
+      if (transport === 'discord') {
+        updateAccountSettings(account.id, {
+          discord: { enabled },
+        });
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings: loadAccountSettings(account.id),
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          message: `Discord routing ${enabled ? 'enabled' : 'disabled'}.`,
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      if (transport !== 'youtube') {
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: 'Unknown transport.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      if (!enabled) {
+        runtime.liveChatId = null;
+        runtime.nextPageToken = null;
+        runtime.primed = false;
+        runtime.youtubeChannelId = null;
+        runtime.resolvedMethod = null;
+        runtime.targetInfo = {};
+        saveAccountRuntime(account.id, runtime);
+        updateAccountSettings(account.id, { youtube: { enabled: false } });
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings: loadAccountSettings(account.id),
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          message: 'YouTube transport disabled.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      if (!account.youtube?.channelId) {
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: 'Set a YouTube Channel ID in the account settings first.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      const shouldReuseRuntime =
+        Boolean(runtime.liveChatId) &&
+        runtime.primed === true &&
+        Boolean(runtime.youtubeChannelId) &&
+        runtime.youtubeChannelId === account.youtube?.channelId;
+
+      if (shouldReuseRuntime) {
+        updateAccountSettings(account.id, { youtube: { enabled: true } });
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings: loadAccountSettings(account.id),
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          message: 'YouTube transport enabled.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      const titleMatch = String(req.body?.youtubeTitleMatch || '').trim();
+      try {
+        const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
+          await resolveTargetLiveChatId(
+            {},
+            {
+              channelId: account.youtube.channelId,
+              titleMatch,
+              livestreamUrl: '',
+              videoId: '',
+            }
+          );
+
+        const token = await primeChat(liveChatId);
+        runtime.liveChatId = liveChatId;
+        runtime.nextPageToken = token;
+        runtime.primed = true;
+        runtime.youtubeChannelId = channelId || account.youtube.channelId || null;
+        runtime.resolvedMethod = method || null;
+        runtime.targetInfo = targetInfo || {};
+        saveAccountRuntime(account.id, runtime);
+        updateAccountSettings(account.id, { youtube: { enabled: true } });
+
+        const updatedQuota = addQuotaUsage(estimatedUnits);
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings: loadAccountSettings(account.id),
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota: updatedQuota,
+          message: `YouTube transport enabled. ~${estimatedUnits} units.`,
+          resolvedMethod: method,
+          targetInfo,
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      } catch (err) {
+        const rawMessage = err?.message || String(err);
+        const friendlyMessage = /already linked/i.test(rawMessage)
+          ? rawMessage
+          : titleMatch
+            ? 'Unable to connect to YouTube livestream with the provided title match. Please confirm the livestream title and that the channel is currently streaming.'
+          : 'Unable to connect to YouTube livestream. Please make sure the channel ID is correct and the channel is currently livestreaming.';
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: friendlyMessage,
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+    },
+
+    async connectOverride(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const runtime = loadAccountRuntime(account.id);
+      const settings = loadAccountSettings(account.id);
+      const targetLivestreamUrl = (req.body?.targetLivestreamUrl || '').trim();
+      if (!targetLivestreamUrl && !account.youtube?.channelId) {
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: 'Set a YouTube Channel ID in the account settings first.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      try {
+        const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
+          await resolveTargetLiveChatId(
+            {
+              livestreamUrl: targetLivestreamUrl,
+            },
+            {
+              channelId: account.youtube?.channelId || '',
+              livestreamUrl: '',
+              videoId: '',
+            }
+          );
+
+        if (channelId) {
+          const conflict = validateUniqueChannelId(channelId, account.id);
+          if (conflict) {
+            throw new Error(conflict);
+          }
+        }
+
+        const token = await primeChat(liveChatId);
+        runtime.liveChatId = liveChatId;
+        runtime.nextPageToken = token;
+        runtime.primed = true;
+        runtime.youtubeChannelId = channelId || account.youtube?.channelId || null;
+        runtime.resolvedMethod = method || null;
+        runtime.targetInfo = targetInfo || {};
+        saveAccountRuntime(account.id, runtime);
+
+        if (settings.youtube?.enabled !== true) {
+          updateAccountSettings(account.id, {
+            youtube: { enabled: true },
+          });
+        }
+
+        const nextSettings = loadAccountSettings(account.id);
+        const quota = addQuotaUsage(estimatedUnits);
+
+        const payload = buildCpanelViewModel({
+          account: getAccountById(account.id),
+          settings: nextSettings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          message: `Connected and primed successfully. ~${estimatedUnits} units.`,
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        });
+        payload.liveChatId = liveChatId;
+        payload.primed = true;
+        payload.resolvedMethod = method;
+        payload.targetInfo = targetInfo;
+        return respondCpanel(app, req, res, payload);
+      } catch (err) {
+        const quota = getQuotaInfo();
+        const rawMessage = err?.message || String(err);
+        const friendlyMessage = /already linked/i.test(rawMessage)
+          ? rawMessage
+          : 'Unable to connect to YouTube livestream. Please make sure the channel ID is correct and the channel is currently livestreaming.';
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: friendlyMessage,
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+    },
+
+    async primeChat(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const runtime = loadAccountRuntime(account.id);
+      const settings = loadAccountSettings(account.id);
+
+      if (!runtime.liveChatId) {
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: 'Not connected.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      try {
+        const token = await primeChat(runtime.liveChatId);
+        runtime.primed = true;
+        runtime.nextPageToken = token;
+        saveAccountRuntime(account.id, runtime);
+
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          message: 'Re-primed: starting fresh from current point in chat.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      } catch (err) {
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: err.message || String(err),
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+    },
+
+    async pollOnce(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const runtime = loadAccountRuntime(account.id);
+      const settings = loadAccountSettings(account.id);
+
+      if (!runtime.liveChatId) {
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: 'Not connected.',
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+
+      try {
+        const result = await pollOnce(account.id, runtime.liveChatId);
+        const refreshedRuntime = loadAccountRuntime(account.id);
+        const refreshedSettings = loadAccountSettings(account.id);
+        const quota = result?.ok ? addQuotaUsage(5) : getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings: refreshedSettings,
+          runtime: refreshedRuntime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          lastPoll: result?.ok
+            ? {
+              received: result.received,
+              handled: result.handled,
+            }
+            : null,
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      } catch (err) {
+        const quota = getQuotaInfo();
+        return respondCpanel(app, req, res, buildCpanelViewModel({
+          account,
+          settings,
+          runtime,
+          modules: moduleNames,
+          customCommands: loadAccountCommands(account.id),
+          quota,
+          error: err.message || String(err),
+          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+        }));
+      }
+    },
+
+    async resetRuntime(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const runtime = resetAccountRuntime(account.id);
+      const settings = loadAccountSettings(account.id);
+      const quota = getQuotaInfo();
+      return respondCpanel(app, req, res, buildCpanelViewModel({
+        account,
+        settings,
+        runtime,
+        modules: moduleNames,
+        customCommands: loadAccountCommands(account.id),
+        quota,
+        message: 'Runtime state reset.',
+        discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
+      }));
+    },
+  };
+}
+
+module.exports = { createCpanelController };

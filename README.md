@@ -158,7 +158,10 @@ Trigger with the per-account prefix (default `!`): `!hello`. The router handles 
 ```
 src/
   index.js               # Main runtime + web UI server
-  views/                 # EJS templates for accounts + control panel
+  backend/
+    views/               # EJS templates for accounts + control panel
+    routes/              # Web UI routes
+    controllers/         # Web UI controllers
   modules/               # Command modules
   services/
     youtube.js           # OAuth + YouTube API client
@@ -169,9 +172,7 @@ src/
     racing/              # Racing game logic, state, parts, venues
     crypto/              # CoinGecko-backed paper trading state/prices
     semantic/            # Semantic word game state/logic (OpenAI embeddings)
-  routes/
-    accounts.js          # Accounts + control panel routes
-    playground.js        # Playground UI
+  routes/                # (removed; web UI lives under backend/)
   server/
     auth.js              # OAuth endpoints
     layout.js            # Shared HTML layout (playground/auth)

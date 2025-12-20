@@ -1,0 +1,96 @@
+const { getAccountById } = require('../../state/accountsRepo');
+const { loadAccountSettings, updateAccountSettings } = require('../../state/accountSettings');
+const { respondModuleEdit, parseCsv, parseNumber } = require('./helpers');
+
+function createModulesController({ app, moduleNames }) {
+  return {
+    async getModule(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const moduleSlug = String(req.params.module || '').toLowerCase();
+      const moduleName =
+        moduleNames.find((name) => name.toLowerCase() === moduleSlug) || null;
+      if (!moduleName) {
+        return res.status(404).send('Module not found.');
+      }
+      const settings = loadAccountSettings(account.id);
+      return respondModuleEdit(app, req, res, {
+        title: `Edit ${moduleName} - ${account.name}`,
+        active: 'accounts',
+        account,
+        moduleName,
+        settings,
+        message: null,
+        error: null,
+      });
+    },
+
+    async updateModule(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).send('Account not found.');
+      }
+      const moduleSlug = String(req.params.module || '').toLowerCase();
+      const moduleName =
+        moduleNames.find((name) => name.toLowerCase() === moduleSlug) || null;
+      if (!moduleName) {
+        return res.status(404).send('Module not found.');
+      }
+      const moduleKey = moduleName.toLowerCase();
+
+      try {
+        if (moduleKey === 'racing') {
+          const racingChannelId = String(req.body?.discordRacingChannelId || '').trim();
+          const raceCooldownMs = parseNumber(req.body?.raceCooldownMs);
+          const raceJoinWindowMs = parseNumber(req.body?.raceJoinWindowMs);
+          updateAccountSettings(account.id, {
+            discord: { racingChannelId },
+            race: {
+              cooldownMs: raceCooldownMs,
+              joinWindowMs: raceJoinWindowMs,
+            },
+          });
+        } else if (moduleKey === 'crypto') {
+          const cryptoAllowedCoins = parseCsv(req.body?.cryptoAllowedCoins || '');
+          const cryptoStartingCash = parseNumber(req.body?.cryptoStartingCash);
+          const cryptoTtlMs = parseNumber(req.body?.cryptoTtlMs);
+          updateAccountSettings(account.id, {
+            crypto: {
+              allowedCoins: cryptoAllowedCoins,
+              startingCash: cryptoStartingCash,
+              coingeckoTtlMs: cryptoTtlMs,
+            },
+          });
+        } else {
+          throw new Error('This module does not have editable settings yet.');
+        }
+
+        const settings = loadAccountSettings(account.id);
+        return respondModuleEdit(app, req, res, {
+          title: `Edit ${moduleName} - ${account.name}`,
+          active: 'accounts',
+          account,
+          moduleName,
+          settings,
+          message: `${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)} settings saved.`,
+          error: null,
+        });
+      } catch (err) {
+        const settings = loadAccountSettings(account.id);
+        return res.status(400).render('modules/index', {
+          title: `Edit ${moduleName} - ${account.name}`,
+          active: 'accounts',
+          account,
+          moduleName,
+          settings,
+          message: null,
+          error: err.message || String(err),
+        });
+      }
+    },
+  };
+}
+
+module.exports = { createModulesController };

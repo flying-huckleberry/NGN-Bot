@@ -52,10 +52,10 @@ const league = safeRequire('League service', './services/league');
 
 // HTTP / routes
 const { mountAuthRoutes } = safeRequire('Auth routes', './server/auth');
-const { registerAccountRoutes } = safeRequire('Account routes', './routes/accounts');
+const { registerAccountRoutes } = safeRequire('Account routes', './backend/routes/accounts');
 const { registerPlaygroundRoutes } = safeRequire(
   'Playground routes',
-  './routes/playground'
+  './backend/routes/playground'
 );
 const {
   startDiscordTransport,
@@ -86,7 +86,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
   try {
     const app = express();
     app.set('view engine', 'ejs');
-    app.set('views', path.join(__dirname, 'views'));
+    app.set('views', path.join(__dirname, 'backend', 'views'));
     app.locals.mode = MODE;
 
     migrateDevStateToDefaultAccount();

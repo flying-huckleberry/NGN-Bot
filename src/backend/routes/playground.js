@@ -1,7 +1,7 @@
-// src/routes/playground.js
-const env = require('../config/env');
-const { renderLayout } = require('../server/layout');
-const { runCommandText, getLog, clearLog, getPlayers } = require('../playground/core');
+// src/backend/routes/playground.js
+const env = require('../../config/env');
+const { renderLayout } = require('../../server/layout');
+const { runCommandText, getLog, clearLog, getPlayers } = require('../../playground/core');
 
 function registerPlaygroundRoutes(app) {
   // Simple server-rendered HTML (you can reuse your current template)
