@@ -43,6 +43,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
       return respondCpanel(app, req, res, data);
     },
 
+    // Toggle module enablement without full page reload.
     async toggleModule(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {
@@ -98,6 +99,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
       }));
     },
 
+    // YouTube connects/disconnects; Discord gates routing per account.
     async toggleTransport(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {
@@ -249,6 +251,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
       }
     },
 
+    // Manual connect override for a specific livestream URL.
     async connectOverride(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {
@@ -397,6 +400,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
       }
     },
 
+    // Manual single poll to conserve quota in dev mode.
     async pollOnce(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {

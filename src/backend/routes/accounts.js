@@ -8,6 +8,7 @@ const { createCommandsController } = require('../controllers/commandsController'
 function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }) {
   app.use(express.urlencoded({ extended: true }));
 
+  // Controllers encapsulate logic; routes just bind URLs.
   const moduleNames = Object.keys(modules || {}).sort();
   const accountsController = createAccountsController({ app, moduleNames, getDiscordStatus });
   const cpanelController = createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce });

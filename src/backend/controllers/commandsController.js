@@ -25,6 +25,7 @@ function createCommandsController({ app }) {
       });
     },
 
+    // Create or update a command by name (case-insensitive).
     async saveCommand(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {
@@ -92,6 +93,7 @@ function createCommandsController({ app }) {
       }
     },
 
+    // Toggle enabled flag for quick on/off without editing.
     async toggleCommand(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {

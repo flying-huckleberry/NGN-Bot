@@ -58,6 +58,7 @@ function createAccountsController({ app, moduleNames, getDiscordStatus }) {
       }
     },
 
+    // Update registry + settings; redirect if the ID changes from rename.
     async updateAccount(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {
@@ -134,6 +135,7 @@ function createAccountsController({ app, moduleNames, getDiscordStatus }) {
       }
     },
 
+    // Delete account registry entry and all scoped state.
     async deleteAccount(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {

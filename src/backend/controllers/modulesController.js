@@ -27,6 +27,7 @@ function createModulesController({ app, moduleNames }) {
       });
     },
 
+    // Module-specific settings editing (racing/crypto).
     async updateModule(req, res) {
       const account = getAccountById(req.params.id);
       if (!account) {

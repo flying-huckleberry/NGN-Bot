@@ -79,6 +79,7 @@ function renderEjs(app, view, data) {
   });
 }
 
+// Render a full page or return partial HTML for AJAX replacements.
 async function respondCpanel(app, req, res, data) {
   if (wantsJson(req)) {
     const html = await renderEjs(app, 'cpanel/content', data);
@@ -87,6 +88,7 @@ async function respondCpanel(app, req, res, data) {
   return res.render('cpanel/index', data);
 }
 
+// Accounts list supports both full-page and JSON HTML payloads.
 async function respondAccounts(app, req, res, data) {
   if (wantsJson(req)) {
     const html = await renderEjs(app, 'accounts/index', data);
@@ -95,6 +97,7 @@ async function respondAccounts(app, req, res, data) {
   return res.render('accounts/index', data);
 }
 
+// Module editor is rendered as full page or partial.
 async function respondModuleEdit(app, req, res, data) {
   if (wantsJson(req)) {
     const html = await renderEjs(app, 'modules/content', data);
@@ -103,6 +106,7 @@ async function respondModuleEdit(app, req, res, data) {
   return res.render('modules/index', data);
 }
 
+// Custom commands view: used for CRUD responses.
 async function respondCommands(app, req, res, data) {
   if (wantsJson(req)) {
     const html = await renderEjs(app, 'commands/content', data);
