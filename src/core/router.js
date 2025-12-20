@@ -1,6 +1,7 @@
 // src/core/router.js
 const { COMMAND_PREFIX } = require('../config/env');
 const { parseText } = require('../utils/parse');
+const { loadAccountCommands } = require('../state/customCommands');
 
 // Returns dispatcher: (msg) => Promise<void>
 function createRouter({ registry, buildContext, isModuleDisabled }) {
@@ -88,6 +89,37 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
         account,
         accountRuntime,
       });
+    }
+
+    // 4) account-scoped custom commands (flat only)
+    if (modName && !cmdName) {
+      const commands = loadAccountCommands(accountId || '');
+      const match = commands.find(
+        (cmd) => String(cmd?.name || '').toLowerCase() === modName.toLowerCase()
+      );
+      if (match && match.enabled !== false) {
+        const platform = String(match.platform || 'both').toLowerCase();
+        const transportType = transport?.type || '';
+        const allowed =
+          platform === 'both' ||
+          (platform === 'youtube' && transportType === 'youtube') ||
+          (platform === 'discord' && transportType === 'discord');
+        if (allowed) {
+          const ctx = await buildContext({
+            msg,
+            liveChatId,
+            args,
+            transport,
+            platformMeta,
+            accountId,
+            accountSettings,
+            account,
+            accountRuntime,
+          });
+          await ctx.reply(match.response);
+          return;
+        }
+      }
     }
 
     // else: unknown command → optionally reply or ignore

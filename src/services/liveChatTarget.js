@@ -59,12 +59,22 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
   if (overrideUrl) {
     result = await getLiveChatIdFromUrl(overrideUrl);
     method = 'Livestream URL (override)';
-    targetInfo = { url: overrideUrl, videoId: result?.videoId };
+    targetInfo = {
+      url: overrideUrl,
+      videoId: result?.videoId,
+      title: result?.title || null,
+      channelId: result?.channelId || null,
+    };
     discoverCost = 1;
   } else if (overrideVideoId) {
     result = await getLiveChatIdForVideo(overrideVideoId);
     method = 'Video ID (override)';
-    targetInfo = { videoId: overrideVideoId, url: buildUrl(overrideVideoId) };
+    targetInfo = {
+      videoId: overrideVideoId,
+      url: buildUrl(overrideVideoId),
+      title: result?.title || null,
+      channelId: result?.channelId || null,
+    };
     discoverCost = 1;
   } else if (overrideChannelId) {
     result = await getLiveChatIdForChannel(
@@ -77,17 +87,28 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       titleMatch: overrideTitleMatch || '',
       videoId: result?.videoId || null,
       url: buildUrl(result?.videoId),
+      title: result?.title || null,
     };
     discoverCost = 101;
   } else if (merged.livestreamUrl) {
     result = await getLiveChatIdFromUrl(merged.livestreamUrl);
     method = 'Livestream URL';
-    targetInfo = { url: merged.livestreamUrl, videoId: result?.videoId };
+    targetInfo = {
+      url: merged.livestreamUrl,
+      videoId: result?.videoId,
+      title: result?.title || null,
+      channelId: result?.channelId || null,
+    };
     discoverCost = 1;
   } else if (merged.videoId) {
     result = await getLiveChatIdForVideo(merged.videoId);
     method = 'Video ID';
-    targetInfo = { videoId: merged.videoId, url: buildUrl(merged.videoId) };
+    targetInfo = {
+      videoId: merged.videoId,
+      url: buildUrl(merged.videoId),
+      title: result?.title || null,
+      channelId: result?.channelId || null,
+    };
     discoverCost = 1;
   } else if (merged.channelId) {
     result = await getLiveChatIdForChannel(
@@ -100,6 +121,7 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       titleMatch: merged.titleMatch || '',
       videoId: result?.videoId || null,
       url: buildUrl(result?.videoId),
+      title: result?.title || null,
     };
     discoverCost = 101;
   } else {

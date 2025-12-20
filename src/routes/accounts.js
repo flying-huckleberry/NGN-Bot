@@ -22,6 +22,12 @@ const {
   resetRuntimeCache,
   accountRuntimeExists,
 } = require('../state/accountRuntime');
+const {
+  loadAccountCommands,
+  upsertCommand,
+  deleteCommand,
+  toggleCommand,
+} = require('../state/customCommands');
 const { deleteScope } = require('../state/scopedStore');
 const { getQuotaInfo, addQuotaUsage } = require('../state/quota');
 const { resolveTargetLiveChatId } = require('../services/liveChatTarget');
@@ -52,6 +58,7 @@ function buildCpanelViewModel({
   settings,
   runtime,
   modules,
+  customCommands,
   quota,
   message,
   error,
@@ -70,6 +77,9 @@ function buildCpanelViewModel({
   const safeSettings = settings || {};
   const safeRuntime = runtime || {};
   const safeModules = Array.isArray(modules) ? modules : [];
+  const safeCommands = Array.isArray(customCommands)
+    ? customCommands
+    : (safeAccount.id ? loadAccountCommands(safeAccount.id) : []);
   const safeDiscordStatus = discordStatus || { enabled: false, state: 'disabled' };
   const resolved = resolvedMethod ?? safeRuntime.resolvedMethod ?? null;
   const target = targetInfo ?? safeRuntime.targetInfo ?? {};
@@ -79,6 +89,7 @@ function buildCpanelViewModel({
     settings: safeSettings,
     runtime: safeRuntime,
     modules: safeModules,
+    customCommands: safeCommands,
     quota,
     message,
     error,
@@ -122,6 +133,14 @@ async function respondModuleEdit(app, req, res, data) {
     return res.json({ html });
   }
   return res.render('modules/index', data);
+}
+
+async function respondCommands(app, req, res, data) {
+  if (wantsJson(req)) {
+    const html = await renderEjs(app, 'commands/content', data);
+    return res.json({ html });
+  }
+  return res.render('commands/index', data);
 }
 
 function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }) {
@@ -169,11 +188,13 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
     const runtime = loadAccountRuntime(account.id);
     const settings = loadAccountSettings(account.id);
     const quota = getQuotaInfo();
+    const customCommands = loadAccountCommands(account.id);
     const data = buildCpanelViewModel({
       account,
       settings,
       runtime,
       modules: moduleNames,
+      customCommands,
       quota,
       discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
     });
@@ -229,11 +250,13 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       const runtime = loadAccountRuntime(updated.id);
       const refreshedSettings = loadAccountSettings(updated.id);
       const quota = getQuotaInfo();
+      const customCommands = loadAccountCommands(updated.id);
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account: updated,
         settings: refreshedSettings,
         runtime,
         modules: moduleNames,
+        customCommands,
         quota,
         message: 'Account updated.',
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -242,11 +265,13 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       const runtime = loadAccountRuntime(account.id);
       const settings = loadAccountSettings(account.id);
       const quota = getQuotaInfo();
+      const customCommands = loadAccountCommands(account.id);
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account,
         settings,
         runtime,
         modules: moduleNames,
+        customCommands,
         quota,
         error: err.message || String(err),
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -272,6 +297,121 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
       return res.redirect('/accounts?message=Account%20deleted');
     } catch (err) {
       return res.redirect(`/accounts?error=${encodeURIComponent(err.message || String(err))}`);
+    }
+  });
+
+  // Custom command CRUD (account scoped)
+  app.get('/accounts/:id/commands', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+    const commands = loadAccountCommands(account.id);
+    return respondCommands(app, req, res, {
+      title: `Custom Commands - ${account.name}`,
+      active: 'accounts',
+      account,
+      commands,
+      message: req.query?.message || null,
+      error: req.query?.error || null,
+    });
+  });
+
+  app.post('/accounts/:id/commands/save', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+
+    const name = String(req.body?.name || '');
+    const response = String(req.body?.response || '');
+    const platform = String(req.body?.platform || 'both');
+    const enabled = String(req.body?.enabled || '').toLowerCase() === 'on' ||
+      String(req.body?.enabled || '').toLowerCase() === 'true';
+    const originalName = String(req.body?.originalName || '').trim();
+
+    try {
+      upsertCommand(account.id, { name, response, platform, enabled }, { originalName });
+      const commands = loadAccountCommands(account.id);
+      return respondCommands(app, req, res, {
+        title: `Custom Commands - ${account.name}`,
+        active: 'accounts',
+        account,
+        commands,
+        message: 'Custom command saved.',
+        error: null,
+      });
+    } catch (err) {
+      const commands = loadAccountCommands(account.id);
+      return respondCommands(app, req, res, {
+        title: `Custom Commands - ${account.name}`,
+        active: 'accounts',
+        account,
+        commands,
+        message: null,
+        error: err.message || String(err),
+      });
+    }
+  });
+
+  app.post('/accounts/:id/commands/delete', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+    const name = String(req.body?.name || '').trim();
+    try {
+      deleteCommand(account.id, name);
+      const commands = loadAccountCommands(account.id);
+      return respondCommands(app, req, res, {
+        title: `Custom Commands - ${account.name}`,
+        active: 'accounts',
+        account,
+        commands,
+        message: 'Custom command deleted.',
+        error: null,
+      });
+    } catch (err) {
+      const commands = loadAccountCommands(account.id);
+      return respondCommands(app, req, res, {
+        title: `Custom Commands - ${account.name}`,
+        active: 'accounts',
+        account,
+        commands,
+        message: null,
+        error: err.message || String(err),
+      });
+    }
+  });
+
+  app.post('/accounts/:id/commands/toggle', async (req, res) => {
+    const account = getAccountById(req.params.id);
+    if (!account) {
+      return res.status(404).send('Account not found.');
+    }
+    const name = String(req.body?.name || '').trim();
+    const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
+    try {
+      toggleCommand(account.id, name, enabled);
+      const commands = loadAccountCommands(account.id);
+      return respondCommands(app, req, res, {
+        title: `Custom Commands - ${account.name}`,
+        active: 'accounts',
+        account,
+        commands,
+        message: 'Custom command updated.',
+        error: null,
+      });
+    } catch (err) {
+      const commands = loadAccountCommands(account.id);
+      return respondCommands(app, req, res, {
+        title: `Custom Commands - ${account.name}`,
+        active: 'accounts',
+        account,
+        commands,
+        message: null,
+        error: err.message || String(err),
+      });
     }
   });
 

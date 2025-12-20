@@ -316,21 +316,32 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
     }
 
     async function startAccountBot(account, { autoPoll }) {
+      const modeLabel = autoPoll ? 'PROD' : 'DEV';
+      const accountLabel = account?.id ? `(${account.id})` : '(unknown)';
       if (!account?.youtube?.channelId) {
-        logger.warn(`Skipping account "${account?.name || account?.id}": no YouTube channel ID.`);
+        logger.warn(
+          `${modeLabel}: Youtube - ${accountLabel} skipping connection: no Youtube channel ID.`
+        );
         return;
       }
 
       const settings = loadAccountSettings(account.id);
       if (settings.youtube?.enabled === false) {
         logger.info(
-          `Skipping account "${account?.name || account?.id}": YouTube transport disabled.`
+          `${modeLabel}: Youtube - ${accountLabel} skipping connection: Youtube transport disabled.`
         );
         return;
       }
 
       const runtime = loadAccountRuntime(account.id);
-      const { liveChatId, method, channelId } = await resolveTargetLiveChatId(
+      if (!autoPoll && runtime.liveChatId && runtime.primed) {
+        logger.info(
+          `${modeLabel}: Youtube - ${accountLabel} reusing cached liveChatId (${runtime.liveChatId})`
+        );
+        return;
+      }
+
+      const { liveChatId, method, channelId, targetInfo } = await resolveTargetLiveChatId(
         {},
         {
           channelId: account.youtube.channelId,
@@ -344,18 +355,22 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       runtime.nextPageToken = token;
       runtime.primed = true;
       runtime.youtubeChannelId = channelId || account.youtube.channelId || null;
+      runtime.resolvedMethod = method || null;
+      runtime.targetInfo = targetInfo || {};
       saveAccountRuntime(account.id, runtime);
 
-      const interval = Number(POLLING_FALLBACK_MS || 10000);
-      logger.info(
-        `PROD: ${account.name} connected via ${method || 'unknown method'} - listening roughly every ${interval}ms`
-      );
-
+      const methodLabel = String(method || 'unknown method')
+        .replace(/\s*\(.*?\)\s*/g, '')
+        .trim();
+      const videoId = targetInfo?.videoId || 'unknown';
       if (autoPoll) {
+        logger.info(
+          `${modeLabel}: Youtube - ${accountLabel} connected (${videoId}) via ${methodLabel}`
+        );
         pollLoop(account.id, liveChatId);
       } else {
         logger.info(
-          `DEV: ${account.name} connected via ${method || 'unknown method'} - manual polling only`
+          `${modeLabel}: Youtube - ${accountLabel} connected (${videoId}) via ${methodLabel}`
         );
       }
     }
@@ -372,6 +387,12 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         for (const account of accounts) {
           try {
             const autoPoll = MODE !== 'dev';
+            const settings = loadAccountSettings(account.id);
+            const modeLabel = autoPoll ? 'PROD' : 'DEV';
+            const accountLabel = account?.id ? `(${account.id})` : '(unknown)';
+            const discordRouting =
+              settings.discord?.enabled === false ? 'routing disabled' : 'routing enabled';
+            logger.info(`${modeLabel}: Discord - ${accountLabel} ${discordRouting}`);
             await startAccountBot(account, { autoPoll });
           } catch (err) {
             logger.error('Failed to start account ' + account.name + ': ' + (err?.message || err));

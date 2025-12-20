@@ -3,10 +3,12 @@ const {
   Client,
   GatewayIntentBits,
   Partials,
+  Events,
 } = require('discord.js');
 const {
   DISCORD_BOT_TOKEN,
   COMMAND_PREFIX,
+  MODE,
 } = require('../config/env');
 const { logger } = require('../utils/logger');
 const {
@@ -81,7 +83,7 @@ function createDiscordTransport(message) {
 async function startDiscordTransport({ dispatch }) {
   if (!DISCORD_BOT_TOKEN) {
     status.state = 'missing_token';
-    logger.warn('Discord transport disabled: DISCORD_BOT_TOKEN not set.');
+    logger.warn(`${MODE.toUpperCase()}: Discord - transport disabled: DISCORD_BOT_TOKEN not set.`);
     return null;
   }
 
@@ -99,22 +101,24 @@ async function startDiscordTransport({ dispatch }) {
 
   status.state = 'connecting';
 
-  client.once('ready', () => {
+  client.once(Events.ClientReady, () => {
     status.state = 'ready';
     status.readyAt = new Date().toISOString();
     status.username = client.user?.tag || null;
-    logger.info(`Discord client logged in as ${client.user?.tag || 'unknown bot'}`);
+    logger.info(
+      `${MODE.toUpperCase()}: Discord - client logged in as ${client.user?.tag || 'unknown bot'}`
+    );
   });
 
   client.on('error', (err) => {
     status.state = 'error';
     status.lastError = err?.message || String(err);
-    logger.error('Discord client error:', err);
+    logger.error(`${MODE.toUpperCase()}: Discord - client error:`, err);
   });
 
   client.on('shardDisconnect', (event) => {
     status.state = 'disconnected';
-    logger.warn('Discord shard disconnected', event?.code);
+    logger.warn(`${MODE.toUpperCase()}: Discord - shard disconnected`, event?.code);
   });
 
   client.on('messageCreate', async (message) => {
@@ -151,17 +155,18 @@ async function startDiscordTransport({ dispatch }) {
         accountRuntime: loadAccountRuntime(account.id),
       });
     } catch (err) {
-      logger.error('Discord dispatch error:', err);
+      logger.error(`${MODE.toUpperCase()}: Discord - dispatch error:`, err);
     }
   });
 
   try {
+    logger.info(`${MODE.toUpperCase()}: Discord - login started`);
     await client.login(DISCORD_BOT_TOKEN);
     return client;
   } catch (err) {
     status.state = 'error';
     status.lastError = err?.message || String(err);
-    logger.error('Failed to login Discord client:', err);
+    logger.error(`${MODE.toUpperCase()}: Discord - failed to login client:`, err);
     throw err;
   }
 }

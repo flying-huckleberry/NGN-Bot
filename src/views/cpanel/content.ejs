@@ -15,9 +15,35 @@
 
 <div id="cpanel-root" style="position:relative;">
   <%- include('../partials/flash', { message, error }) %>
-  <h2>Control Panel</h2>
-  <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
-  <p><a href="/accounts" style="color:#93c5fd; text-decoration:none;">&larr; Back to accounts</a></p>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+    <div>
+      <h2 style="margin-bottom:6px;">Control Panel</h2>
+      <p style="color:#9ca3af; margin:0 0 6px;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
+      <p style="margin:0;"><a href="/accounts" style="color:#93c5fd; text-decoration:none;">&larr; Back to accounts</a></p>
+    </div>
+    <% if (mode === 'dev') { %>
+      <div style="min-width:260px; background:#0b1224; padding:12px; border-radius:12px; border:1px solid #1f2937;">
+        <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:10px; letter-spacing:0.08em;">DEV TOOLS</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <form action="/accounts/<%= account.id %>/cpanel/poll" method="post" data-cpanel-action>
+            <button <%= liveChatId ? '' : 'disabled title="Connect first"' %> style="width:100%; background:#2563eb; color:#fff; border:1px solid #1d4ed8; padding:14px 12px; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer;">Poll once</button>
+          </form>
+          <form action="/accounts/<%= account.id %>/cpanel/reset" method="post" data-cpanel-action data-confirm="Reset runtime state for this account?">
+            <button style="width:100%; background:#d9534f; color:#fff; border:1px solid #d43f3a; padding:10px 12px; border-radius:10px; cursor:pointer;">
+              Reset runtime
+            </button>
+          </form>
+          <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action>
+            <label style="display:block; font-size:0.85rem; margin-bottom:6px; color:#cbd5e1;">Connect via Livestream URL</label>
+            <div style="display:flex; gap:8px;">
+              <input name="targetLivestreamUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+              <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% } %>
+  </div>
 
   <div class="state-status" style="margin:12px 0;">
     Runtime state:
@@ -27,21 +53,9 @@
   </div>
 
   <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
-    <form action="/accounts/<%= account.id %>/cpanel/poll" method="post" data-cpanel-action>
-      <button <%= liveChatId ? '' : 'disabled title="Connect first"' %> style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Poll once</button>
-    </form>
-
-    <form action="/accounts/<%= account.id %>/cpanel/reset" method="post" data-cpanel-action data-confirm="Reset runtime state for this account?">
-      <button style="background:#d9534f; color:#fff; border:1px solid #d43f3a; padding:8px 12px; border-radius:8px; cursor:pointer;">
-        Reset runtime
-      </button>
-    </form>
-  </div>
-
-  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
     <div style="flex:1; min-width:480px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="margin:0; color:#cbd5e1;">YouTube Transport</h3>
+        <h3 style="margin:0; color:#cbd5e1;">YouTube Connection</h3>
         <span style="display:flex; align-items:center; gap:10px;">
           <span style="font-size:0.85rem; color:<%= youtubeEnabled ? (primed ? '#22c55e' : '#fbbf24') : '#f87171' %>;">
             <%= youtubeEnabled ? (primed ? 'Primed' : 'Not primed') : 'Disabled' %>
@@ -101,6 +115,7 @@
         </div>
       </div>
       <div style="margin-top:12px; font-size:0.85rem; color:#94a3b8;">
+        <div><strong>Livestream Title:</strong> <%= target.title || 'Unavailable' %></div>
         <div>
           <strong>Livestream URL:</strong>
           <% if (target.url) { %>
@@ -117,16 +132,6 @@
       <div style="margin-top:14px; padding:10px 12px; border-radius:10px; background:#0f172a; border:1px solid #1f2937;">
         <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:6px;">Title Match (optional)</div>
         <input data-youtube-title-match type="text" placeholder="Exact or partial livestream title" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-      </div>
-      <div style="margin-top:14px; padding:10px 12px; border-radius:10px; background:#0f172a; border:1px solid #1f2937;">
-        <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:6px;">Connect via Livestream URL</div>
-        <form action="/accounts/<%= account.id %>/cpanel/connect" method="post" data-cpanel-action>
-          <div style="display:flex; gap:8px;">
-            <input name="targetLivestreamUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
-            <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Send</button>
-          </div>
-        </form>
-        
       </div>
       <% if (lastPoll) { %>
         <div style="line-height:1.6; font-size:0.9rem; margin-top:12px;">
@@ -165,7 +170,7 @@
 
     <div style="flex:1; min-width:480px; background:#0b1224; color:#e5e7eb; padding:16px; border-radius:12px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 style="margin:0; color:#cbd5e1;">Discord Transport</h3>
+        <h3 style="margin:0; color:#cbd5e1;">Discord Connection</h3>
         <span style="display:flex; align-items:center; gap:10px;">
           <span style="font-size:0.85rem; color:<%= discordEnabled ? '#22c55e' : '#f87171' %>;">
             <%= discordEnabled ? 'Enabled' : 'Disabled' %>
@@ -265,6 +270,29 @@
       </div>
     </div>
   <% } %>
+
+  <div data-commands-accordion style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px;">
+    <div data-commands-header style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
+      <h3 style="margin:0; color:#cbd5e1;">
+        <a href="/accounts/<%= account.id %>/commands" onmouseover="this.style.textDecoration='underline';" onmouseout="this.style.textDecoration='none';" style="color:#cbd5e1; text-decoration:none;">Custom Commands &rarr;</a>
+      </h3>
+      <button type="button" data-commands-toggle style="background:#111827; color:#e5e7eb; border:1px solid #1f2937; padding:4px 10px; border-radius:6px; cursor:pointer;">Show</button>
+    </div>
+    <div data-commands-body style="display:none; margin-top:12px;">
+      <% if (customCommands && customCommands.length) { %>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <% customCommands.forEach((cmd) => { %>
+            <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid #1f2937; background:<%= cmd.enabled ? '#0f172a' : '#111827' %>; color:<%= cmd.enabled ? '#e5e7eb' : '#94a3b8' %>;">
+              <%= cmd.name %>
+              <span style="font-size:0.7rem; color:#64748b;"><%= cmd.platform || 'both' %></span>
+            </span>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <p style="color:#94a3b8; margin:0;">No custom commands yet.</p>
+      <% } %>
+    </div>
+  </div>
 
   <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:16px;">
     <h3 style="margin-top:0; color:#cbd5e1;">Account Details</h3>
@@ -523,6 +551,33 @@
         });
       };
 
+      const bindCommandsAccordion = () => {
+        const accordion = root.querySelector('[data-commands-accordion]');
+        if (!accordion || accordion.dataset.bound === 'true') return;
+        accordion.dataset.bound = 'true';
+        const header = accordion.querySelector('[data-commands-header]');
+        const body = accordion.querySelector('[data-commands-body]');
+        const button = accordion.querySelector('[data-commands-toggle]');
+        if (!header || !body || !button) return;
+
+        const toggle = () => {
+          const isHidden = body.style.display === 'none';
+          body.style.display = isHidden ? 'block' : 'none';
+          button.textContent = isHidden ? 'Hide' : 'Show';
+        };
+
+        header.addEventListener('click', (event) => {
+          if (event.target && event.target.closest('a')) {
+            return;
+          }
+          toggle();
+        });
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          toggle();
+        });
+      };
+
       const setLoading = (isLoading) => {
         root.querySelectorAll('button').forEach((btn) => {
           const alreadyDisabled = btn.dataset.originalDisabled === 'true';
@@ -596,6 +651,7 @@
       bindCopyButtons();
       bindModuleCardHover();
       bindLiveChatToggle();
+      bindCommandsAccordion();
     };
 
     attachHandlers();

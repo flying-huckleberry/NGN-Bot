@@ -1,0 +1,163 @@
+<% const pageMessage = typeof message === 'undefined' ? null : message; %>
+<% const pageError = typeof error === 'undefined' ? null : error; %>
+<% const safeCommands = Array.isArray(commands) ? commands : []; %>
+
+<div style="position:relative;">
+  <%- include('../partials/flash', { message: pageMessage, error: pageError }) %>
+  <h2>Custom Commands</h2>
+  <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
+  <p><a href="/accounts/<%= account.id %>/cpanel" style="color:#93c5fd; text-decoration:none;">&larr; Back to control panel</a></p>
+
+  <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Add Command</h3>
+    <form action="/accounts/<%= account.id %>/commands/save" method="post" style="display:grid; gap:12px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Command Name
+          <input name="name" type="text" placeholder="hello" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Command Response
+          <input name="response" type="text" placeholder="Hello there!" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Platform
+          <select name="platform" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;">
+            <option value="both">Both</option>
+            <option value="youtube">YouTube Only</option>
+            <option value="discord">Discord Only</option>
+          </select>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Enabled
+          <span style="position:relative; width:46px; height:24px; display:inline-block;">
+            <input
+              name="enabled"
+              type="checkbox"
+              value="true"
+              checked
+              data-command-toggle
+              style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+            />
+            <span data-toggle-track style="
+              position:absolute;
+              inset:0;
+              background:#22c55e;
+              border:1px solid #334155;
+              border-radius:999px;
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+            <span data-toggle-thumb style="
+              position:absolute;
+              top:2px;
+              left:24px;
+              width:20px;
+              height:20px;
+              background:#0b1224;
+              border:1px solid #475569;
+              border-radius:999px;
+              box-shadow:0 1px 4px rgba(0,0,0,0.4);
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+          </span>
+        </label>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Create Command</button>
+      </div>
+    </form>
+  </div>
+
+  <div style="margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Existing Commands</h3>
+    <% if (!safeCommands.length) { %>
+      <p style="color:#94a3b8;">No custom commands yet.</p>
+    <% } %>
+    <% safeCommands.forEach((cmd) => { %>
+      <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:12px;">
+        <form action="/accounts/<%= account.id %>/commands/save" method="post" style="display:grid; gap:12px;">
+          <input type="hidden" name="originalName" value="<%= cmd.name %>" />
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:160px; flex:0.6 1 160px;">
+              Command Name
+              <input name="name" type="text" value="<%= cmd.name %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:260px; flex:2 1 260px;">
+              Command Response
+              <input name="response" type="text" value="<%= cmd.response %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:160px; flex:0.6 1 160px;">
+              Platform
+              <select name="platform" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;">
+                <option value="both" <%= cmd.platform === 'both' ? 'selected' : '' %>>Both</option>
+                <option value="youtube" <%= cmd.platform === 'youtube' ? 'selected' : '' %>>YouTube Only</option>
+                <option value="discord" <%= cmd.platform === 'discord' ? 'selected' : '' %>>Discord Only</option>
+              </select>
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+              Enabled
+              <span style="position:relative; width:46px; height:24px; display:inline-block;">
+                <input
+                  name="enabled"
+                  type="checkbox"
+                  value="true"
+                  <%= cmd.enabled ? 'checked' : '' %>
+                  data-command-toggle
+                  style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+                />
+                <span data-toggle-track style="
+                  position:absolute;
+                  inset:0;
+                  background:<%= cmd.enabled ? '#22c55e' : '#1f2937' %>;
+                  border:1px solid #334155;
+                  border-radius:999px;
+                  transition:all 0.2s ease;
+                  pointer-events:none;
+                "></span>
+                <span data-toggle-thumb style="
+                  position:absolute;
+                  top:2px;
+                  left:<%= cmd.enabled ? '24px' : '2px' %>;
+                  width:20px;
+                  height:20px;
+                  background:#0b1224;
+                  border:1px solid #475569;
+                  border-radius:999px;
+                  box-shadow:0 1px 4px rgba(0,0,0,0.4);
+                  transition:all 0.2s ease;
+                  pointer-events:none;
+                "></span>
+              </span>
+            </label>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-left:auto; padding-bottom:2px;">
+              <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save</button>
+              <button type="submit" formaction="/accounts/<%= account.id %>/commands/delete" formmethod="post" name="name" value="<%= cmd.name %>" onclick="return confirm('Delete this custom command?');" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const bindCommandToggles = () => {
+      document.querySelectorAll('input[data-command-toggle]').forEach((input) => {
+        input.addEventListener('change', (event) => {
+          const target = event.currentTarget;
+          const wrapper = target.parentElement;
+          const track = wrapper?.querySelector('[data-toggle-track]');
+          const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+          const on = target.checked;
+          if (track) track.style.background = on ? '#22c55e' : '#1f2937';
+          if (thumb) thumb.style.left = on ? '24px' : '2px';
+        });
+      });
+    };
+
+    bindCommandToggles();
+  })();
+</script>

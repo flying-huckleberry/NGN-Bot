@@ -91,8 +91,7 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
     throw new Error('Live video found but no active chat (chat disabled or members-only).');
   }
 
-  logger.info(`🎬 Monitoring live: "${title}" (${videoId})`);
-  return { liveChatId, channelId, videoId };
+  return { liveChatId, channelId, videoId, title };
 }
 
 async function getLiveChatIdForVideo(videoId) {
@@ -104,7 +103,8 @@ async function getLiveChatIdForVideo(videoId) {
   const liveChatId = item?.liveStreamingDetails?.activeLiveChatId;
   if (!liveChatId) throw new Error('Video found but not currently live or chat disabled.');
   const channelId = item?.snippet?.channelId || null;
-  return { liveChatId, channelId, videoId };
+  const title = item?.snippet?.title || null;
+  return { liveChatId, channelId, videoId, title };
 }
 
 /**
