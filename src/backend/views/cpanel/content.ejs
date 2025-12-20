@@ -255,7 +255,7 @@
           <% const enabled = !disabledSet.has(String(name || '').toLowerCase()); %>
           <div data-module-toggle-wrapper data-module-card style="position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb; transition:background 0.2s ease;">
             <a href="/accounts/<%= account.id %>/modules/<%= encodeURIComponent(String(name || '').toLowerCase()) %>" aria-label="Edit <%= name %> module settings" style="position:absolute; inset:0; border-radius:8px; z-index:1; cursor:pointer;"></a>
-            <span style="font-size:0.95rem;"><%= name %></span>
+            <span data-module-link-text style="font-size:0.95rem;"><%= name %> &rarr;</span>
             <span data-module-toggle-hit style="position:relative; width:46px; height:24px; display:inline-block; z-index:2; cursor:pointer;">
               <input
                 type="checkbox"
@@ -290,7 +290,7 @@
     </div>
   <% } %>
 
-  <div data-commands-accordion style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px;">
+  <div data-commands-accordion style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px; transition:background 0.2s ease;">
     <div data-commands-header style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
       <h3 style="margin:0; color:#cbd5e1;">
         <a href="/accounts/<%= account.id %>/commands" onmouseover="this.style.textDecoration='underline';" onmouseout="this.style.textDecoration='none';" style="color:#cbd5e1; text-decoration:none;">Custom Commands &rarr;</a>
@@ -438,10 +438,14 @@
           const hoverColor = '#1b2c4d';
           const baseColor = '#0f172a';
           const toggleHit = card.querySelector('[data-module-toggle-hit]');
+          const linkText = card.querySelector('[data-module-link-text]');
 
           const isOverToggle = (target) => toggleHit && toggleHit.contains(target);
           const applyHover = (on) => {
             card.style.background = on ? hoverColor : baseColor;
+            if (linkText) {
+              linkText.style.textDecoration = on ? 'underline' : 'none';
+            }
           };
 
           card.addEventListener('mouseenter', (event) => {
@@ -578,6 +582,16 @@
         const body = accordion.querySelector('[data-commands-body]');
         const button = accordion.querySelector('[data-commands-toggle]');
         if (!header || !body || !button) return;
+
+        const hoverColor = '#1b2c4d';
+        const baseColor = '#0b1224';
+
+        accordion.addEventListener('mouseenter', () => {
+          accordion.style.background = hoverColor;
+        });
+        accordion.addEventListener('mouseleave', () => {
+          accordion.style.background = baseColor;
+        });
 
         const toggle = () => {
           const isHidden = body.style.display === 'none';
