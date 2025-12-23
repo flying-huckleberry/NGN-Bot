@@ -79,6 +79,7 @@ const {
   CRYPTO_STARTING_CASH = '1000',
   COINGECKO_TTL_MS = '60000',
   SEMANTIC_TARGET_WORD = '',
+  AUTO_ANNOUNCEMENTS_MAX = '5',
 } = process.env;
 
 // validate critical oauth vars early
@@ -158,4 +159,7 @@ module.exports = {
 
   // Semantic game
   SEMANTIC_TARGET_WORD: (SEMANTIC_TARGET_WORD || '').trim(),
+
+  // Auto announcements
+  AUTO_ANNOUNCEMENTS_MAX: Number(AUTO_ANNOUNCEMENTS_MAX) || 5,
 };

@@ -4,16 +4,33 @@ const { createAccountsController } = require('../controllers/accountsController'
 const { createCpanelController } = require('../controllers/cpanelController');
 const { createModulesController } = require('../controllers/modulesController');
 const { createCommandsController } = require('../controllers/commandsController');
+const { createAutoAnnouncementsController } = require('../controllers/autoAnnouncementsController');
 
-function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }) {
+function registerAccountRoutes(app, {
+  pollOnce,
+  getDiscordStatus,
+  modules = {},
+  refreshAutoAnnouncements,
+  autoAnnouncements,
+}) {
   app.use(express.urlencoded({ extended: true }));
 
   // Controllers encapsulate logic; routes just bind URLs.
   const moduleNames = Object.keys(modules || {}).sort();
   const accountsController = createAccountsController({ app, moduleNames, getDiscordStatus });
-  const cpanelController = createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce });
+  const cpanelController = createCpanelController({
+    app,
+    moduleNames,
+    getDiscordStatus,
+    pollOnce,
+    autoAnnouncements,
+  });
   const modulesController = createModulesController({ app, moduleNames });
   const commandsController = createCommandsController({ app });
+  const autoAnnouncementsController = createAutoAnnouncementsController({
+    app,
+    refreshAutoAnnouncements,
+  });
 
   app.get('/', accountsController.redirectRoot);
   app.get('/accounts', accountsController.listAccounts);
@@ -26,6 +43,11 @@ function registerAccountRoutes(app, { pollOnce, getDiscordStatus, modules = {} }
   app.post('/accounts/:id/commands/save', commandsController.saveCommand);
   app.post('/accounts/:id/commands/delete', commandsController.deleteCommand);
   app.post('/accounts/:id/commands/toggle', commandsController.toggleCommand);
+
+  app.get('/accounts/:id/auto-announcements', autoAnnouncementsController.listAnnouncements);
+  app.post('/accounts/:id/auto-announcements/save', autoAnnouncementsController.saveAnnouncement);
+  app.post('/accounts/:id/auto-announcements/delete', autoAnnouncementsController.deleteAnnouncement);
+  app.post('/accounts/:id/auto-announcements/toggle', autoAnnouncementsController.toggleAnnouncement);
 
   app.get('/accounts/:id/modules/:module', modulesController.getModule);
   app.post('/accounts/:id/modules/:module', modulesController.updateModule);

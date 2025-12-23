@@ -1,0 +1,172 @@
+<% const pageMessage = typeof message === 'undefined' ? null : message; %>
+<% const pageError = typeof error === 'undefined' ? null : error; %>
+<% const safeAnnouncements = Array.isArray(announcements) ? announcements : []; %>
+<% const paused = runtime?.autoAnnouncementsPaused === true; %>
+
+<div style="position:relative;">
+  <%- include('../partials/flash', { message: pageMessage, error: pageError }) %>
+  <h2>Auto Announcements</h2>
+  <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
+  <p><a href="/accounts/<%= account.id %>/cpanel" style="color:#93c5fd; text-decoration:none;">&larr; Back to control panel</a></p>
+
+  <% if (paused) { %>
+    <div style="background:#3b0d0d; border:1px solid #7f1d1d; color:#fee2e2; padding:12px 14px; border-radius:10px; margin-top:12px;">
+      Auto announcements are paused after repeated send failures. Re-enable YouTube transport to resume.
+    </div>
+  <% } %>
+
+  <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Add Auto Announcement</h3>
+    <form action="/accounts/<%= account.id %>/auto-announcements/save" method="post" style="display:grid; gap:12px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Name
+          <input name="name" type="text" placeholder="Stream reminder" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Message
+          <input name="message" type="text" placeholder="Thanks for watching!" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Interval (minutes)
+          <input name="intervalMinutes" type="number" min="<%= minMinutes %>" max="<%= maxMinutes %>" step="1" value="<%= minMinutes %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          <span style="font-size:0.75rem; color:#94a3b8;">Between <%= minMinutes %> and <%= maxMinutes %> minutes.</span>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Enabled
+          <span style="position:relative; width:46px; height:24px; display:inline-block;">
+            <input
+              name="enabled"
+              type="checkbox"
+              value="true"
+              checked
+              data-announcement-toggle
+              style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+            />
+            <span data-toggle-track style="
+              position:absolute;
+              inset:0;
+              background:#22c55e;
+              border:1px solid #334155;
+              border-radius:999px;
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+            <span data-toggle-thumb style="
+              position:absolute;
+              top:2px;
+              left:24px;
+              width:20px;
+              height:20px;
+              background:#0b1224;
+              border:1px solid #475569;
+              border-radius:999px;
+              box-shadow:0 1px 4px rgba(0,0,0,0.4);
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+          </span>
+        </label>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Create Auto Announcement</button>
+        <span style="font-size:0.8rem; color:#94a3b8;">Max <%= maxEntries %> total (including disabled).</span>
+      </div>
+    </form>
+  </div>
+
+  <div style="margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Existing Auto Announcements</h3>
+    <% if (!safeAnnouncements.length) { %>
+      <p style="color:#94a3b8;">No auto announcements yet.</p>
+    <% } %>
+    <% safeAnnouncements.forEach((item) => { %>
+      <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:12px;">
+        <form action="/accounts/<%= account.id %>/auto-announcements/save" method="post" style="display:grid; gap:12px;">
+          <input type="hidden" name="originalName" value="<%= item.name %>" />
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:160px; flex:0.8 1 160px;">
+              Name
+              <input name="name" type="text" value="<%= item.name %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:260px; flex:2 1 260px;">
+              Message
+              <input name="message" type="text" value="<%= item.message %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:160px; flex:0.5 1 160px;">
+              Interval (minutes)
+              <input
+                name="intervalMinutes"
+                type="number"
+                min="<%= minMinutes %>"
+                max="<%= maxMinutes %>"
+                step="1"
+                value="<%= Math.round((Number(item.intervalSeconds || 0) / 60) || minMinutes) %>"
+                style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;"
+              />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+              Enabled
+              <span style="position:relative; width:46px; height:24px; display:inline-block;">
+                <input
+                  name="enabled"
+                  type="checkbox"
+                  value="true"
+                  <%= item.enabled ? 'checked' : '' %>
+                  data-announcement-toggle
+                  style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+                />
+                <span data-toggle-track style="
+                  position:absolute;
+                  inset:0;
+                  background:<%= item.enabled ? '#22c55e' : '#1f2937' %>;
+                  border:1px solid #334155;
+                  border-radius:999px;
+                  transition:all 0.2s ease;
+                  pointer-events:none;
+                "></span>
+                <span data-toggle-thumb style="
+                  position:absolute;
+                  top:2px;
+                  left:<%= item.enabled ? '24px' : '2px' %>;
+                  width:20px;
+                  height:20px;
+                  background:#0b1224;
+                  border:1px solid #475569;
+                  border-radius:999px;
+                  box-shadow:0 1px 4px rgba(0,0,0,0.4);
+                  transition:all 0.2s ease;
+                  pointer-events:none;
+                "></span>
+              </span>
+            </label>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-left:auto; padding-bottom:2px;">
+              <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save</button>
+              <button type="submit" formaction="/accounts/<%= account.id %>/auto-announcements/delete" formmethod="post" name="name" value="<%= item.name %>" onclick="return confirm('Delete this auto announcement?');" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const bindAnnouncementToggles = () => {
+      document.querySelectorAll('input[data-announcement-toggle]').forEach((input) => {
+        input.addEventListener('change', (event) => {
+          const target = event.currentTarget;
+          const wrapper = target.parentElement;
+          const track = wrapper?.querySelector('[data-toggle-track]');
+          const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+          const on = target.checked;
+          if (track) track.style.background = on ? '#22c55e' : '#1f2937';
+          if (thumb) thumb.style.left = on ? '24px' : '2px';
+        });
+      });
+    };
+
+    bindAnnouncementToggles();
+  })();
+</script>

@@ -27,6 +27,7 @@ function buildCpanelViewModel({
   runtime,
   modules,
   customCommands,
+  autoAnnouncements,
   quota,
   message,
   error,
@@ -48,6 +49,9 @@ function buildCpanelViewModel({
   const safeCommands = Array.isArray(customCommands)
     ? customCommands
     : (safeAccount.id ? loadAccountCommands(safeAccount.id) : []);
+  const safeAutoAnnouncements = Array.isArray(autoAnnouncements)
+    ? autoAnnouncements
+    : [];
   const safeDiscordStatus = discordStatus || { enabled: false, state: 'disabled' };
   const resolved = resolvedMethod ?? safeRuntime.resolvedMethod ?? null;
   const target = targetInfo ?? safeRuntime.targetInfo ?? {};
@@ -58,6 +62,7 @@ function buildCpanelViewModel({
     runtime: safeRuntime,
     modules: safeModules,
     customCommands: safeCommands,
+    autoAnnouncements: safeAutoAnnouncements,
     quota,
     message,
     error,
@@ -115,6 +120,15 @@ async function respondCommands(app, req, res, data) {
   return res.render('commands/index', data);
 }
 
+// Auto announcements view: used for CRUD responses.
+async function respondAutoAnnouncements(app, req, res, data) {
+  if (wantsJson(req)) {
+    const html = await renderEjs(app, 'auto-announcements/content', data);
+    return res.json({ html });
+  }
+  return res.render('auto-announcements/index', data);
+}
+
 module.exports = {
   wantsJson,
   parseCsv,
@@ -124,4 +138,5 @@ module.exports = {
   respondAccounts,
   respondModuleEdit,
   respondCommands,
+  respondAutoAnnouncements,
 };

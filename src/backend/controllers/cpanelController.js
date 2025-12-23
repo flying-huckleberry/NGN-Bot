@@ -12,6 +12,7 @@ const {
   resetAccountRuntime,
 } = require('../../state/accountRuntime');
 const { loadAccountCommands } = require('../../state/customCommands');
+const { loadAccountAnnouncements } = require('../../state/autoAnnouncements');
 const { getQuotaInfo } = require('../../state/quota');
 const { resolveTargetLiveChatId } = require('../../services/liveChatTarget');
 const { primeChat } = require('../../services/youtube');
@@ -20,7 +21,13 @@ const {
   respondCpanel,
 } = require('./helpers');
 
-function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }) {
+function createCpanelController({
+  app,
+  moduleNames,
+  getDiscordStatus,
+  pollOnce,
+  autoAnnouncements,
+}) {
   return {
     async getCpanel(req, res) {
       const account = getAccountById(req.params.id);
@@ -31,12 +38,14 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
       const settings = loadAccountSettings(account.id);
       const quota = getQuotaInfo();
       const customCommands = loadAccountCommands(account.id);
+      const autoAnnouncementsList = loadAccountAnnouncements(account.id);
       const data = buildCpanelViewModel({
         account,
         settings,
         runtime,
         modules: moduleNames,
         customCommands,
+        autoAnnouncements: autoAnnouncementsList,
         quota,
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
       });
@@ -68,6 +77,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: 'Unknown module.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -93,6 +103,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
         runtime,
         modules: moduleNames,
         customCommands: loadAccountCommands(account.id),
+        autoAnnouncements: loadAccountAnnouncements(account.id),
         quota,
         message: `${targetName} ${enabled ? 'enabled' : 'disabled'}.`,
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -122,6 +133,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           message: `Discord routing ${enabled ? 'enabled' : 'disabled'}.`,
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -135,6 +147,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: 'Unknown transport.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -150,12 +163,16 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
         runtime.targetInfo = {};
         saveAccountRuntime(account.id, runtime);
         updateAccountSettings(account.id, { youtube: { enabled: false } });
+        if (autoAnnouncements?.stop) {
+          autoAnnouncements.stop(account.id);
+        }
         return respondCpanel(app, req, res, buildCpanelViewModel({
           account,
           settings: loadAccountSettings(account.id),
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           message: 'YouTube transport disabled.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -169,6 +186,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: 'Set a YouTube Channel ID in the account settings first.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -183,12 +201,22 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
 
       if (shouldReuseRuntime) {
         updateAccountSettings(account.id, { youtube: { enabled: true } });
+        if (autoAnnouncements?.clearPausedState) {
+          autoAnnouncements.clearPausedState(account.id);
+        }
+        if (autoAnnouncements?.resetFailures) {
+          autoAnnouncements.resetFailures(account.id);
+        }
+        if (autoAnnouncements?.refresh) {
+          autoAnnouncements.refresh(account.id);
+        }
         return respondCpanel(app, req, res, buildCpanelViewModel({
           account,
           settings: loadAccountSettings(account.id),
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           message: 'YouTube transport enabled.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -217,6 +245,15 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
         runtime.targetInfo = targetInfo || {};
         saveAccountRuntime(account.id, runtime);
         updateAccountSettings(account.id, { youtube: { enabled: true } });
+        if (autoAnnouncements?.clearPausedState) {
+          autoAnnouncements.clearPausedState(account.id);
+        }
+        if (autoAnnouncements?.resetFailures) {
+          autoAnnouncements.resetFailures(account.id);
+        }
+        if (autoAnnouncements?.refresh) {
+          autoAnnouncements.refresh(account.id);
+        }
 
         const updatedQuota = getQuotaInfo();
         return respondCpanel(app, req, res, buildCpanelViewModel({
@@ -225,6 +262,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota: updatedQuota,
           message: `YouTube transport enabled. ~${estimatedUnits} units.`,
           resolvedMethod: method,
@@ -244,6 +282,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: friendlyMessage,
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -268,6 +307,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: 'Set a YouTube Channel ID in the account settings first.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -308,6 +348,15 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
             youtube: { enabled: true },
           });
         }
+        if (autoAnnouncements?.clearPausedState) {
+          autoAnnouncements.clearPausedState(account.id);
+        }
+        if (autoAnnouncements?.resetFailures) {
+          autoAnnouncements.resetFailures(account.id);
+        }
+        if (autoAnnouncements?.refresh) {
+          autoAnnouncements.refresh(account.id);
+        }
 
         const nextSettings = loadAccountSettings(account.id);
         const quota = getQuotaInfo();
@@ -318,6 +367,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           message: `Connected and primed successfully. ~${estimatedUnits} units.`,
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -339,6 +389,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: friendlyMessage,
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -362,6 +413,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: 'Not connected.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -381,6 +433,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           message: 'Re-primed: starting fresh from current point in chat.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -393,6 +446,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: err.message || String(err),
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -417,6 +471,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: 'Not connected.',
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -434,6 +489,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime: refreshedRuntime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           lastPoll: result?.ok
             ? {
@@ -451,6 +507,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
           runtime,
           modules: moduleNames,
           customCommands: loadAccountCommands(account.id),
+          autoAnnouncements: loadAccountAnnouncements(account.id),
           quota,
           error: err.message || String(err),
           discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
@@ -466,12 +523,16 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
       const runtime = resetAccountRuntime(account.id);
       const settings = loadAccountSettings(account.id);
       const quota = getQuotaInfo();
+      if (autoAnnouncements?.stop) {
+        autoAnnouncements.stop(account.id);
+      }
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account,
         settings,
         runtime,
         modules: moduleNames,
         customCommands: loadAccountCommands(account.id),
+        autoAnnouncements: loadAccountAnnouncements(account.id),
         quota,
         message: 'Runtime state reset.',
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,

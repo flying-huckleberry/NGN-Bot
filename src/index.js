@@ -43,6 +43,10 @@ const {
   listLiveChatMessages,
   sendChatMessage,
 } = safeRequire('YouTube service', './services/youtube');
+const { createAutoAnnouncementsManager } = safeRequire(
+  'Auto announcements manager',
+  './services/autoAnnouncements'
+);
 
 const { resolveTargetLiveChatId } = safeRequire(
   'Live chat target resolver',
@@ -111,6 +115,14 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
 
     const dispatch = createRouter({ registry, buildContext, isModuleDisabled });
 
+    const autoAnnouncements = createAutoAnnouncementsManager({
+      sendChatMessage,
+      onTransportDown: async (accountId) => {
+        const account = getAccountById(accountId);
+        resetYoutubeTransport(accountId, account, { preserveAutoAnnouncementsPause: true });
+      },
+    });
+
     // 2) OAuth routes (save tokens, then startBot)
     mountAuthRoutes(app, { onAuthed: startBot });
 
@@ -120,6 +132,8 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         pollOnceWithDispatch(accountId, liveChatId, dispatch),
       getDiscordStatus,
       modules: registry.modules,
+      refreshAutoAnnouncements: (accountId) => autoAnnouncements.refresh(accountId),
+      autoAnnouncements,
     });
 
     // 4) Playground routes
@@ -175,9 +189,21 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       );
     }
 
-    function resetYoutubeTransport(accountId, account) {
+    function resetYoutubeTransport(accountId, account, options = {}) {
+      const existing = loadAccountRuntime(accountId);
+      const paused = Boolean(existing.autoAnnouncementsPaused);
+      const pauseAt = existing.autoAnnouncementsPausedAt || null;
+      const pauseReason = existing.autoAnnouncementsPausedReason || '';
       resetAccountRuntime(accountId);
+      if (options.preserveAutoAnnouncementsPause && paused) {
+        saveAccountRuntime(accountId, {
+          autoAnnouncementsPaused: true,
+          autoAnnouncementsPausedAt: pauseAt,
+          autoAnnouncementsPausedReason: pauseReason,
+        });
+      }
       updateAccountSettings(accountId, { youtube: { enabled: false } });
+      autoAnnouncements.stop(accountId);
       logger.info(
         `YouTube transport reset for account "${account?.name || accountId}".`
       );
@@ -364,15 +390,19 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         .replace(/\s*\(.*?\)\s*/g, '')
         .trim();
       const videoId = targetInfo?.videoId || 'unknown';
+      autoAnnouncements.clearPausedState(account.id);
+      autoAnnouncements.resetFailures(account.id);
       if (autoPoll) {
         logger.info(
           `${modeLabel}: Youtube - ${accountLabel} connected (${videoId}) via ${methodLabel}`
         );
+        autoAnnouncements.refresh(account.id);
         pollLoop(account.id, liveChatId);
       } else {
         logger.info(
           `${modeLabel}: Youtube - ${accountLabel} connected (${videoId}) via ${methodLabel}`
         );
+        autoAnnouncements.refresh(account.id);
       }
     }
 
