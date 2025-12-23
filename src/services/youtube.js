@@ -1,7 +1,8 @@
 // src/services/youtube.js
 const { google } = require('googleapis');
 const fs = require('fs');
-const { logger } = require('../utils/logger'); 
+const { logger } = require('../utils/logger');
+const { addQuotaUsage } = require('../state/quota');
 
 const {
   GOOGLE_CLIENT_ID,
@@ -19,6 +20,17 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+const QUOTA_UNITS = Object.freeze({
+  searchList: 100,
+  videosList: 1,
+  liveChatList: 5,
+  liveChatInsert: 50,
+});
+
+function trackQuota(units) {
+  addQuotaUsage(units);
+}
 
 /**
  * If token.json exists, load it and set credentials.
@@ -54,6 +66,7 @@ function saveOAuthTokens(tokens) {
  * Optional `titleSubstring` to pick a specific live by (partial) title.
  */
 async function getLiveChatIdForChannel(channelId, titleSubstring) {
+  trackQuota(QUOTA_UNITS.searchList);
   const searchRes = await youtube.search.list({
     part: ['id', 'snippet'],
     channelId,
@@ -82,6 +95,7 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
     throw new Error('Found a live item but could not resolve video ID.');
   }
 
+  trackQuota(QUOTA_UNITS.videosList);
   const videosRes = await youtube.videos.list({
     part: ['liveStreamingDetails', 'snippet'],
     id: [videoId],
@@ -95,6 +109,7 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
 }
 
 async function getLiveChatIdForVideo(videoId) {
+  trackQuota(QUOTA_UNITS.videosList);
   const res = await youtube.videos.list({
     part: ['liveStreamingDetails', 'snippet'],
     id: [videoId],
@@ -124,6 +139,7 @@ async function getLiveChatIdFromUrl(url) {
  * Also handy for recovering from invalidPageToken.
  */
 async function primeChat(liveChatId) {
+  trackQuota(QUOTA_UNITS.liveChatList);
   const res = await youtube.liveChatMessages.list({
     liveChatId,
     part: ['snippet'],
@@ -132,10 +148,16 @@ async function primeChat(liveChatId) {
   return res.data.nextPageToken || null;
 }
 
+async function listLiveChatMessages(params) {
+  trackQuota(QUOTA_UNITS.liveChatList);
+  return youtube.liveChatMessages.list(params);
+}
+
 /**
  * Send a plain text chat message.
  */
 async function sendChatMessage(liveChatId, text) {
+  trackQuota(QUOTA_UNITS.liveChatInsert);
   await youtube.liveChatMessages.insert({
     part: ['snippet'],
     requestBody: {
@@ -164,5 +186,6 @@ module.exports = {
 
   // chat
   primeChat,
+  listLiveChatMessages,
   sendChatMessage,
 };

@@ -40,6 +40,7 @@ const {
   youtube,
   initYoutubeAuthIfTokenExists,
   primeChat,
+  listLiveChatMessages,
   sendChatMessage,
 } = safeRequire('YouTube service', './services/youtube');
 
@@ -190,7 +191,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       const youtubeTransport = createYoutubeTransport(liveChatId);
       let res;
       try {
-        res = await youtube.liveChatMessages.list({
+        res = await listLiveChatMessages({
           liveChatId,
           part: ['snippet', 'authorDetails'],
           pageToken: runtime.nextPageToken || undefined,
@@ -201,7 +202,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         // If our saved page token went stale (e.g. long downtime), re-prime once to realign.
         if (String(reason).toLowerCase().includes('invalidpagetoken')) {
           const newToken = await primeChat(liveChatId);
-          res = await youtube.liveChatMessages.list({
+          res = await listLiveChatMessages({
             liveChatId,
             part: ['snippet', 'authorDetails'],
             pageToken: newToken || undefined,
@@ -269,7 +270,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       const settings = loadAccountSettings(accountId);
 
       try {
-        const res = await youtube.liveChatMessages.list({
+        const res = await listLiveChatMessages({
           liveChatId,
           part: ['snippet', 'authorDetails'],
           pageToken: runtime.nextPageToken || undefined,

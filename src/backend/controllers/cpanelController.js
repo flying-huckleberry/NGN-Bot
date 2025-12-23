@@ -12,7 +12,7 @@ const {
   resetAccountRuntime,
 } = require('../../state/accountRuntime');
 const { loadAccountCommands } = require('../../state/customCommands');
-const { getQuotaInfo, addQuotaUsage } = require('../../state/quota');
+const { getQuotaInfo } = require('../../state/quota');
 const { resolveTargetLiveChatId } = require('../../services/liveChatTarget');
 const { primeChat } = require('../../services/youtube');
 const {
@@ -218,7 +218,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
         saveAccountRuntime(account.id, runtime);
         updateAccountSettings(account.id, { youtube: { enabled: true } });
 
-        const updatedQuota = addQuotaUsage(estimatedUnits);
+        const updatedQuota = getQuotaInfo();
         return respondCpanel(app, req, res, buildCpanelViewModel({
           account,
           settings: loadAccountSettings(account.id),
@@ -310,7 +310,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
         }
 
         const nextSettings = loadAccountSettings(account.id);
-        const quota = addQuotaUsage(estimatedUnits);
+        const quota = getQuotaInfo();
 
         const payload = buildCpanelViewModel({
           account: getAccountById(account.id),
@@ -427,7 +427,7 @@ function createCpanelController({ app, moduleNames, getDiscordStatus, pollOnce }
         const result = await pollOnce(account.id, runtime.liveChatId);
         const refreshedRuntime = loadAccountRuntime(account.id);
         const refreshedSettings = loadAccountSettings(account.id);
-        const quota = result?.ok ? addQuotaUsage(5) : getQuotaInfo();
+        const quota = getQuotaInfo();
         return respondCpanel(app, req, res, buildCpanelViewModel({
           account,
           settings: refreshedSettings,
