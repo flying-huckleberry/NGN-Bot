@@ -11,6 +11,14 @@ const cache = new Map();
 const MIN_INTERVAL_MINUTES = 3;
 const MAX_INTERVAL_MINUTES = 60;
 
+function parseId(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (!Number.isInteger(n)) return null;
+  if (n <= 0) return null;
+  return n;
+}
+
 function normalizeName(raw) {
   const trimmed = String(raw || '').trim();
   return trimmed;
@@ -47,6 +55,11 @@ function buildAnnouncement(input) {
     message,
     intervalSeconds: intervalMinutes * 60,
     enabled: input?.enabled !== false,
+    id: parseId(input?.id) || null,
+    // Persist the last send timestamp so cadence survives restarts.
+    // This is intentionally stored per message (not runtime-only) to avoid
+    // a burst of messages when the server restarts or the transport re-enables.
+    lastSentAt: input?.lastSentAt || null,
     createdAt: input?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -84,14 +97,13 @@ function saveAccountAnnouncements(accountId, announcements) {
   return normalized;
 }
 
-function upsertAnnouncement(accountId, payload, { originalName } = {}) {
+function upsertAnnouncement(accountId, payload) {
   const announcements = loadAccountAnnouncements(accountId).slice();
   const next = buildAnnouncement(payload);
-  const targetKey = normalizeName(originalName || next.name).toLowerCase();
-
-  const existingIdx = announcements.findIndex(
-    (item) => normalizeName(item.name).toLowerCase() === targetKey
-  );
+  const requestedId = parseId(payload?.id);
+  const existingIdx = requestedId
+    ? announcements.findIndex((item) => parseId(item?.id) === requestedId)
+    : -1;
 
   if (existingIdx >= 0) {
     const existing = announcements[existingIdx];
@@ -106,9 +118,15 @@ function upsertAnnouncement(accountId, payload, { originalName } = {}) {
     announcements[existingIdx] = {
       ...existing,
       ...next,
+      id: existing.id,
       createdAt: existing.createdAt || next.createdAt,
+      // Preserve lastSentAt on edits so timing remains stable.
+      lastSentAt: existing.lastSentAt || next.lastSentAt || null,
     };
   } else {
+    if (requestedId) {
+      throw new Error('Auto announcement not found.');
+    }
     if (announcements.length >= AUTO_ANNOUNCEMENTS_MAX) {
       throw new Error(`You can only create ${AUTO_ANNOUNCEMENTS_MAX} auto announcements.`);
     }
@@ -118,30 +136,30 @@ function upsertAnnouncement(accountId, payload, { originalName } = {}) {
     if (collision) {
       throw new Error(`Auto announcement "${next.name}" already exists.`);
     }
-    announcements.push(next);
+    const nextId = announcements.reduce((max, item) => Math.max(max, parseId(item?.id) || 0), 0) + 1;
+    announcements.push({ ...next, id: nextId });
   }
 
   return saveAccountAnnouncements(accountId, announcements);
 }
 
-function deleteAnnouncement(accountId, name) {
+function deleteAnnouncement(accountId, id) {
   const announcements = loadAccountAnnouncements(accountId).slice();
-  const key = normalizeName(name).toLowerCase();
-  const next = announcements.filter(
-    (item) => normalizeName(item.name).toLowerCase() !== key
-  );
+  const targetId = parseId(id);
+  if (!targetId) {
+    throw new Error('Auto announcement not found.');
+  }
+  const next = announcements.filter((item) => parseId(item?.id) !== targetId);
   if (next.length === announcements.length) {
     throw new Error('Auto announcement not found.');
   }
   return saveAccountAnnouncements(accountId, next);
 }
 
-function toggleAnnouncement(accountId, name, enabled) {
+function toggleAnnouncement(accountId, id, enabled) {
   const announcements = loadAccountAnnouncements(accountId).slice();
-  const key = normalizeName(name).toLowerCase();
-  const idx = announcements.findIndex(
-    (item) => normalizeName(item.name).toLowerCase() === key
-  );
+  const targetId = parseId(id);
+  const idx = announcements.findIndex((item) => parseId(item?.id) === targetId);
   if (idx === -1) {
     throw new Error('Auto announcement not found.');
   }
@@ -149,6 +167,20 @@ function toggleAnnouncement(accountId, name, enabled) {
     ...announcements[idx],
     enabled: Boolean(enabled),
     updatedAt: new Date().toISOString(),
+  };
+  return saveAccountAnnouncements(accountId, announcements);
+}
+
+function updateAnnouncementLastSent(accountId, id, lastSentAt) {
+  const announcements = loadAccountAnnouncements(accountId).slice();
+  const targetId = parseId(id);
+  const idx = announcements.findIndex((item) => parseId(item?.id) === targetId);
+  if (idx === -1) return announcements;
+  // Update lastSentAt only; we intentionally avoid touching other fields
+  // to keep this a lightweight, timing-only persistence hook.
+  announcements[idx] = {
+    ...announcements[idx],
+    lastSentAt: lastSentAt || new Date().toISOString(),
   };
   return saveAccountAnnouncements(accountId, announcements);
 }
@@ -164,6 +196,7 @@ module.exports = {
   upsertAnnouncement,
   deleteAnnouncement,
   toggleAnnouncement,
+  updateAnnouncementLastSent,
   resetAnnouncementsCache,
   MIN_INTERVAL_MINUTES,
   MAX_INTERVAL_MINUTES,

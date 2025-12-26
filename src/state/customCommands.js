@@ -9,6 +9,14 @@ const { MAX_CHARS } = require('../config/env');
 const COMMANDS_FILE = 'commands.json';
 const cache = new Map();
 
+function parseId(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (!Number.isInteger(n)) return null;
+  if (n <= 0) return null;
+  return n;
+}
+
 function normalizeName(raw) {
   const trimmed = String(raw || '').trim();
   if (!trimmed) return '';
@@ -37,6 +45,7 @@ function buildCommand(input) {
     response,
     platform: normalizePlatform(input?.platform),
     enabled: input?.enabled !== false,
+    id: parseId(input?.id) || null,
     createdAt: input?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -74,14 +83,13 @@ function saveAccountCommands(accountId, commands) {
   return normalized;
 }
 
-function upsertCommand(accountId, payload, { originalName } = {}) {
+function upsertCommand(accountId, payload) {
   const commands = loadAccountCommands(accountId).slice();
   const next = buildCommand(payload);
-  const targetKey = normalizeName(originalName || next.name).toLowerCase();
-
-  const existingIdx = commands.findIndex(
-    (cmd) => normalizeName(cmd.name).toLowerCase() === targetKey
-  );
+  const requestedId = parseId(payload?.id);
+  const existingIdx = requestedId
+    ? commands.findIndex((cmd) => parseId(cmd?.id) === requestedId)
+    : -1;
 
   if (existingIdx >= 0) {
     const existing = commands[existingIdx];
@@ -96,39 +104,43 @@ function upsertCommand(accountId, payload, { originalName } = {}) {
     commands[existingIdx] = {
       ...existing,
       ...next,
+      id: existing.id,
       createdAt: existing.createdAt || next.createdAt,
     };
   } else {
+    if (requestedId) {
+      throw new Error('Command not found.');
+    }
     const collision = commands.find(
       (cmd) => normalizeName(cmd.name).toLowerCase() === normalizeName(next.name).toLowerCase()
     );
     if (collision) {
       throw new Error(`Command "${next.name}" already exists.`);
     }
-    commands.push(next);
+    const nextId = commands.reduce((max, cmd) => Math.max(max, parseId(cmd?.id) || 0), 0) + 1;
+    commands.push({ ...next, id: nextId });
   }
 
   return saveAccountCommands(accountId, commands);
 }
 
-function deleteCommand(accountId, name) {
+function deleteCommand(accountId, id) {
   const commands = loadAccountCommands(accountId).slice();
-  const key = normalizeName(name).toLowerCase();
-  const next = commands.filter(
-    (cmd) => normalizeName(cmd.name).toLowerCase() !== key
-  );
+  const targetId = parseId(id);
+  if (!targetId) {
+    throw new Error('Command not found.');
+  }
+  const next = commands.filter((cmd) => parseId(cmd?.id) !== targetId);
   if (next.length === commands.length) {
     throw new Error('Command not found.');
   }
   return saveAccountCommands(accountId, next);
 }
 
-function toggleCommand(accountId, name, enabled) {
+function toggleCommand(accountId, id, enabled) {
   const commands = loadAccountCommands(accountId).slice();
-  const key = normalizeName(name).toLowerCase();
-  const idx = commands.findIndex(
-    (cmd) => normalizeName(cmd.name).toLowerCase() === key
-  );
+  const targetId = parseId(id);
+  const idx = commands.findIndex((cmd) => parseId(cmd?.id) === targetId);
   if (idx === -1) {
     throw new Error('Command not found.');
   }

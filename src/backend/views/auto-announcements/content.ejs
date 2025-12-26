@@ -83,7 +83,7 @@
     <% safeAnnouncements.forEach((item) => { %>
       <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:12px;">
         <form action="/accounts/<%= account.id %>/auto-announcements/save" method="post" style="display:grid; gap:12px;">
-          <input type="hidden" name="originalName" value="<%= item.name %>" />
+          <input type="hidden" name="id" value="<%= item.id %>" />
           <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
             <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:160px; flex:0.8 1 160px;">
               Name
@@ -142,7 +142,7 @@
             </label>
             <div style="display:flex; flex-direction:column; gap:8px; margin-left:auto; padding-bottom:2px;">
               <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save</button>
-              <button type="submit" formaction="/accounts/<%= account.id %>/auto-announcements/delete" formmethod="post" name="name" value="<%= item.name %>" onclick="return confirm('Delete this auto announcement?');" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
+              <button type="submit" formaction="/accounts/<%= account.id %>/auto-announcements/delete" formmethod="post" onclick="return confirm('Delete this auto announcement?');" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
             </div>
           </div>
         </form>

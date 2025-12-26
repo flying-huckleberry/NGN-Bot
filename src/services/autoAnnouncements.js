@@ -1,5 +1,5 @@
 // src/services/autoAnnouncements.js
-const { loadAccountAnnouncements } = require('../state/autoAnnouncements');
+const { loadAccountAnnouncements, updateAnnouncementLastSent } = require('../state/autoAnnouncements');
 const { loadAccountRuntime, saveAccountRuntime } = require('../state/accountRuntime');
 const { loadAccountSettings, updateAccountSettings } = require('../state/accountSettings');
 const { logger } = require('../utils/logger');
@@ -7,9 +7,9 @@ const { logger } = require('../utils/logger');
 const FAILURE_LIMIT = 2;
 const FALLBACK_CHECK_MS = 30000;
 
-function normalizeName(raw) {
-  return String(raw || '').trim().toLowerCase();
-}
+  function normalizeId(raw) {
+    return String(raw || '').trim();
+  }
 
 function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
   const schedules = new Map();
@@ -95,13 +95,24 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
     let nextRunAt = null;
 
     for (const item of announcements) {
-      const key = normalizeName(item.name);
+      const key = normalizeId(item.id);
       if (!key) continue;
       const intervalMs = Math.max(1, Number(item.intervalSeconds) || 0) * 1000;
       let stateEntry = state.messageState.get(key);
       if (!stateEntry) {
+        // Bootstrap per-message schedule using the persisted lastSentAt value.
+        // This prevents a flood after restarts because each message resumes
+        // from its prior cadence instead of firing immediately.
+        const lastSentAt = item.lastSentAt ? Date.parse(item.lastSentAt) : null;
+        let nextRunAt = now + intervalMs;
+        if (Number.isFinite(lastSentAt)) {
+          // If the stored cadence is still in the future, use it as-is.
+          // If it is in the past, schedule the next full interval from now.
+          const candidate = lastSentAt + intervalMs;
+          nextRunAt = candidate > now ? candidate : now + intervalMs;
+        }
         stateEntry = {
-          nextRunAt: now + intervalMs,
+          nextRunAt,
           failCount: 0,
           intervalMs,
         };
@@ -113,15 +124,39 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
 
       if (now >= stateEntry.nextRunAt) {
         try {
+          logger.info('Auto announcement send attempt.', {
+            accountId,
+            name: item.name,
+            intervalSeconds: item.intervalSeconds,
+          });
           await sendChatMessage(runtime.liveChatId, String(item.message || '').trim());
           stateEntry.failCount = 0;
           stateEntry.nextRunAt = now + intervalMs;
+          // Persist lastSentAt so timing survives server restarts and
+          // transport toggles without bunching all messages together.
+          updateAnnouncementLastSent(accountId, item.id, new Date().toISOString());
+          logger.info('Auto announcement sent.', {
+            accountId,
+            name: item.name,
+            nextRunAt: new Date(stateEntry.nextRunAt).toISOString(),
+          });
         } catch (err) {
           stateEntry.failCount += 1;
           stateEntry.nextRunAt = now + intervalMs;
+          logger.error('Auto announcement send failed.', {
+            accountId,
+            name: item.name,
+            failCount: stateEntry.failCount,
+            error: err?.message || String(err),
+          });
           if (stateEntry.failCount >= FAILURE_LIMIT) {
             const message = err?.message || String(err);
-            logger.warn(`Auto announcements paused for ${accountId}: ${message}`);
+            logger.warn('Auto announcements paused after repeated failures.', {
+              accountId,
+              name: item.name,
+              failCount: stateEntry.failCount,
+              reason: message,
+            });
             await handleFailure(accountId, message);
             return;
           }
@@ -134,7 +169,7 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
     }
 
     const activeKeys = new Set(
-      announcements.map((item) => normalizeName(item.name)).filter(Boolean)
+      announcements.map((item) => normalizeId(item.id)).filter(Boolean)
     );
     for (const key of state.messageState.keys()) {
       if (!activeKeys.has(key)) {

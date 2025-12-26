@@ -37,10 +37,10 @@ function createCommandsController({ app }) {
       const platform = String(req.body?.platform || 'both');
       const enabled = String(req.body?.enabled || '').toLowerCase() === 'on' ||
         String(req.body?.enabled || '').toLowerCase() === 'true';
-      const originalName = String(req.body?.originalName || '').trim();
+      const id = String(req.body?.id || '').trim();
 
       try {
-        upsertCommand(account.id, { name, response, platform, enabled }, { originalName });
+        upsertCommand(account.id, { id, name, response, platform, enabled });
         const commands = loadAccountCommands(account.id);
         return respondCommands(app, req, res, {
           title: `Custom Commands - ${account.name}`,
@@ -68,9 +68,9 @@ function createCommandsController({ app }) {
       if (!account) {
         return res.status(404).send('Account not found.');
       }
-      const name = String(req.body?.name || '').trim();
+      const id = String(req.body?.id || '').trim();
       try {
-        deleteCommand(account.id, name);
+        deleteCommand(account.id, id);
         const commands = loadAccountCommands(account.id);
         return respondCommands(app, req, res, {
           title: `Custom Commands - ${account.name}`,
@@ -99,10 +99,10 @@ function createCommandsController({ app }) {
       if (!account) {
         return res.status(404).send('Account not found.');
       }
-      const name = String(req.body?.name || '').trim();
+      const id = String(req.body?.id || '').trim();
       const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
       try {
-        toggleCommand(account.id, name, enabled);
+        toggleCommand(account.id, id, enabled);
         const commands = loadAccountCommands(account.id);
         return respondCommands(app, req, res, {
           title: `Custom Commands - ${account.name}`,

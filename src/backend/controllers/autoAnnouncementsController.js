@@ -45,15 +45,16 @@ function createAutoAnnouncementsController({ app, refreshAutoAnnouncements }) {
       const intervalMinutes = String(req.body?.intervalMinutes || '');
       const enabled = String(req.body?.enabled || '').toLowerCase() === 'on' ||
         String(req.body?.enabled || '').toLowerCase() === 'true';
-      const originalName = String(req.body?.originalName || '').trim();
+      const id = String(req.body?.id || '').trim();
 
       try {
         upsertAnnouncement(account.id, {
+          id,
           name,
           message,
           intervalMinutes,
           enabled,
-        }, { originalName });
+        });
         if (typeof refreshAutoAnnouncements === 'function') {
           refreshAutoAnnouncements(account.id);
         }
@@ -94,9 +95,9 @@ function createAutoAnnouncementsController({ app, refreshAutoAnnouncements }) {
       if (!account) {
         return res.status(404).send('Account not found.');
       }
-      const name = String(req.body?.name || '').trim();
+      const id = String(req.body?.id || '').trim();
       try {
-        deleteAnnouncement(account.id, name);
+        deleteAnnouncement(account.id, id);
         if (typeof refreshAutoAnnouncements === 'function') {
           refreshAutoAnnouncements(account.id);
         }
@@ -137,10 +138,10 @@ function createAutoAnnouncementsController({ app, refreshAutoAnnouncements }) {
       if (!account) {
         return res.status(404).send('Account not found.');
       }
-      const name = String(req.body?.name || '').trim();
+      const id = String(req.body?.id || '').trim();
       const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
       try {
-        toggleAnnouncement(account.id, name, enabled);
+        toggleAnnouncement(account.id, id, enabled);
         if (typeof refreshAutoAnnouncements === 'function') {
           refreshAutoAnnouncements(account.id);
         }
