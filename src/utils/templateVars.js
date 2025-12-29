@@ -30,7 +30,7 @@ function formatLocalTime() {
   });
 }
 
-function buildTemplateValues({ mention, accountRuntime, quotaInfo }) {
+function buildTemplateValues({ sender, accountRuntime, quotaInfo }) {
   const targetInfo = accountRuntime?.targetInfo || {};
   const channelName =
     targetInfo.channelName ||
@@ -41,7 +41,7 @@ function buildTemplateValues({ mention, accountRuntime, quotaInfo }) {
   const quota = quotaInfo || getQuotaInfo();
 
   return {
-    mention: mention || '',
+    sender: sender || '',
     channel_name: channelName || 'unknown',
     live_title: liveTitle || 'unknown',
     live_uptime: formatLiveUptime(streamStartAt),

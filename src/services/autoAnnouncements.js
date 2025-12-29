@@ -131,7 +131,7 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
             intervalSeconds: item.intervalSeconds,
           });
           const values = buildTemplateValues({
-            mention: '',
+            sender: '',
             accountRuntime: runtime,
           });
           const rendered = renderTemplate(String(item.message || '').trim(), values);

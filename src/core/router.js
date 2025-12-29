@@ -118,7 +118,7 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
             accountRuntime,
           });
           const values = buildTemplateValues({
-            mention: ctx.mention(),
+            sender: ctx.mention(),
             accountRuntime: ctx.accountRuntime,
           });
           const rendered = renderTemplate(match.response, values);
