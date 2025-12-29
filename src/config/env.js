@@ -81,6 +81,7 @@ const {
   SEMANTIC_TARGET_WORD = '',
   AUTO_ANNOUNCEMENTS_MAX = '5',
   CUSTOM_COMMANDS_MAX = '15',
+  DISCORD_MAX_CHARS = '1990',
 } = process.env;
 
 // validate critical oauth vars early
@@ -166,4 +167,7 @@ module.exports = {
 
   // Custom commands
   CUSTOM_COMMANDS_MAX: Number(CUSTOM_COMMANDS_MAX) || 15,
+
+  // Discord
+  DISCORD_MAX_CHARS: Number(DISCORD_MAX_CHARS) || 1990,
 };

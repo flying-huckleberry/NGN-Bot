@@ -4,7 +4,7 @@ const {
   ensureAccountDir,
   getAccountFilePath,
 } = require('./accountPaths');
-const { MAX_CHARS, CUSTOM_COMMANDS_MAX } = require('../config/env');
+const { MAX_CHARS, CUSTOM_COMMANDS_MAX, DISCORD_MAX_CHARS } = require('../config/env');
 
 const COMMANDS_FILE = 'commands.json';
 const cache = new Map();
@@ -37,13 +37,17 @@ function buildCommand(input) {
   }
   const response = String(input?.response || '').trim();
   if (!response) throw new Error('Command response is required.');
-  if (response.length > MAX_CHARS) {
-    throw new Error(`Command response exceeds ${MAX_CHARS} characters.`);
+  const platform = normalizePlatform(input?.platform);
+  if ((platform === 'both' || platform === 'youtube') && response.length > MAX_CHARS) {
+    throw new Error(`YouTube commands are limited to ${MAX_CHARS} characters.`);
+  }
+  if ((platform === 'both' || platform === 'discord') && response.length > DISCORD_MAX_CHARS) {
+    throw new Error(`Discord commands are limited to ${DISCORD_MAX_CHARS} characters.`);
   }
   return {
     name,
     response,
-    platform: normalizePlatform(input?.platform),
+    platform,
     enabled: input?.enabled !== false,
     id: parseId(input?.id) || null,
     createdAt: input?.createdAt || new Date().toISOString(),
