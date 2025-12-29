@@ -1,5 +1,6 @@
 // src/services/autoAnnouncements.js
 const { loadAccountAnnouncements, updateAnnouncementLastSent } = require('../state/autoAnnouncements');
+const { buildTemplateValues, renderTemplate } = require('../utils/templateVars');
 const { loadAccountRuntime, saveAccountRuntime } = require('../state/accountRuntime');
 const { loadAccountSettings, updateAccountSettings } = require('../state/accountSettings');
 const { logger } = require('../utils/logger');
@@ -129,7 +130,12 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
             name: item.name,
             intervalSeconds: item.intervalSeconds,
           });
-          await sendChatMessage(runtime.liveChatId, String(item.message || '').trim());
+          const values = buildTemplateValues({
+            mention: '',
+            accountRuntime: runtime,
+          });
+          const rendered = renderTemplate(String(item.message || '').trim(), values);
+          await sendChatMessage(runtime.liveChatId, rendered);
           stateEntry.failCount = 0;
           stateEntry.nextRunAt = now + intervalMs;
           // Persist lastSentAt so timing survives server restarts and

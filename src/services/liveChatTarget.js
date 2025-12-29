@@ -64,6 +64,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       videoId: result?.videoId,
       title: result?.title || null,
       channelId: result?.channelId || null,
+      channelName: result?.channelTitle || null,
+      streamStartAt: result?.actualStartTime || null,
     };
     discoverCost = 1;
   } else if (overrideVideoId) {
@@ -74,6 +76,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       url: buildUrl(overrideVideoId),
       title: result?.title || null,
       channelId: result?.channelId || null,
+      channelName: result?.channelTitle || null,
+      streamStartAt: result?.actualStartTime || null,
     };
     discoverCost = 1;
   } else if (overrideChannelId) {
@@ -88,6 +92,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       videoId: result?.videoId || null,
       url: buildUrl(result?.videoId),
       title: result?.title || null,
+      channelName: result?.channelTitle || null,
+      streamStartAt: result?.actualStartTime || null,
     };
     discoverCost = 101;
   } else if (merged.livestreamUrl) {
@@ -98,6 +104,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       videoId: result?.videoId,
       title: result?.title || null,
       channelId: result?.channelId || null,
+      channelName: result?.channelTitle || null,
+      streamStartAt: result?.actualStartTime || null,
     };
     discoverCost = 1;
   } else if (merged.videoId) {
@@ -108,6 +116,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       url: buildUrl(merged.videoId),
       title: result?.title || null,
       channelId: result?.channelId || null,
+      channelName: result?.channelTitle || null,
+      streamStartAt: result?.actualStartTime || null,
     };
     discoverCost = 1;
   } else if (merged.channelId) {
@@ -122,6 +132,8 @@ async function resolveTargetLiveChatId(overrides = {}, config = {}) {
       videoId: result?.videoId || null,
       url: buildUrl(result?.videoId),
       title: result?.title || null,
+      channelName: result?.channelTitle || null,
+      streamStartAt: result?.actualStartTime || null,
     };
     discoverCost = 101;
   } else {

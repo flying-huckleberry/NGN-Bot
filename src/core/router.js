@@ -2,6 +2,7 @@
 const { COMMAND_PREFIX } = require('../config/env');
 const { parseText } = require('../utils/parse');
 const { loadAccountCommands } = require('../state/customCommands');
+const { buildTemplateValues, renderTemplate } = require('../utils/templateVars');
 
 // Returns dispatcher: (msg) => Promise<void>
 function createRouter({ registry, buildContext, isModuleDisabled }) {
@@ -116,7 +117,12 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
             account,
             accountRuntime,
           });
-          await ctx.reply(match.response);
+          const values = buildTemplateValues({
+            mention: ctx.mention(),
+            accountRuntime: ctx.accountRuntime,
+          });
+          const rendered = renderTemplate(match.response, values);
+          await ctx.reply(rendered);
           return;
         }
       }

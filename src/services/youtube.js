@@ -100,12 +100,16 @@ async function getLiveChatIdForChannel(channelId, titleSubstring) {
     part: ['liveStreamingDetails', 'snippet'],
     id: [videoId],
   });
-  const liveChatId = videosRes.data.items?.[0]?.liveStreamingDetails?.activeLiveChatId;
+  const videoItem = videosRes.data.items?.[0];
+  const liveChatId = videoItem?.liveStreamingDetails?.activeLiveChatId;
   if (!liveChatId) {
     throw new Error('Live video found but no active chat (chat disabled or members-only).');
   }
 
-  return { liveChatId, channelId, videoId, title };
+  const channelTitle = videoItem?.snippet?.channelTitle || null;
+  const actualStartTime = videoItem?.liveStreamingDetails?.actualStartTime || null;
+
+  return { liveChatId, channelId, videoId, title, channelTitle, actualStartTime };
 }
 
 async function getLiveChatIdForVideo(videoId) {
@@ -119,7 +123,9 @@ async function getLiveChatIdForVideo(videoId) {
   if (!liveChatId) throw new Error('Video found but not currently live or chat disabled.');
   const channelId = item?.snippet?.channelId || null;
   const title = item?.snippet?.title || null;
-  return { liveChatId, channelId, videoId, title };
+  const channelTitle = item?.snippet?.channelTitle || null;
+  const actualStartTime = item?.liveStreamingDetails?.actualStartTime || null;
+  return { liveChatId, channelId, videoId, title, channelTitle, actualStartTime };
 }
 
 /**
