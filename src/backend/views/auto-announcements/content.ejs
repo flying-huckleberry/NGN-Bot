@@ -142,7 +142,7 @@
             </label>
             <div style="display:flex; flex-direction:column; gap:8px; margin-left:auto; padding-bottom:2px;">
               <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save</button>
-              <button type="submit" formaction="/accounts/<%= account.id %>/auto-announcements/delete" formmethod="post" onclick="return confirm('Delete this auto announcement?');" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
+              <button type="submit" formaction="/accounts/<%= account.id %>/auto-announcements/delete" formmethod="post" data-confirm="Delete this auto announcement?" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
             </div>
           </div>
         </form>
@@ -153,20 +153,82 @@
 
 <script>
   (function () {
-    const bindAnnouncementToggles = () => {
-      document.querySelectorAll('input[data-announcement-toggle]').forEach((input) => {
-        input.addEventListener('change', (event) => {
-          const target = event.currentTarget;
-          const wrapper = target.parentElement;
-          const track = wrapper?.querySelector('[data-toggle-track]');
-          const thumb = wrapper?.querySelector('[data-toggle-thumb]');
-          const on = target.checked;
-          if (track) track.style.background = on ? '#22c55e' : '#1f2937';
-          if (thumb) thumb.style.left = on ? '24px' : '2px';
-        });
-      });
+    const main = document.querySelector('main.main');
+    if (!main || main.dataset.ajaxBound === 'true') return;
+    main.dataset.ajaxBound = 'true';
+
+    const dismissFlash = () => {
+      const flash = document.getElementById('cpanel-flash');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.3s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 300);
+        }, 5000);
+      }
+      const flashError = document.getElementById('cpanel-flash-error');
+      if (flashError) {
+        setTimeout(() => {
+          flashError.style.transition = 'opacity 0.3s ease';
+          flashError.style.opacity = '0';
+          setTimeout(() => flashError.remove(), 300);
+        }, 5000);
+      }
     };
 
-    bindAnnouncementToggles();
+    const renderHtml = (html) => {
+      if (!main) return;
+      main.innerHTML = html;
+      dismissFlash();
+    };
+
+    const submitForm = async (form, submitter) => {
+      const formData = new FormData(form);
+      const body = new URLSearchParams();
+      formData.forEach((value, key) => {
+        body.append(key, value);
+      });
+
+      const action = submitter?.getAttribute('formaction') || form.action;
+      const res = await fetch(action, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        },
+        body,
+      });
+
+      if (!res.ok) throw new Error('Request failed: ' + res.status);
+      const data = await res.json();
+      if (data?.html) renderHtml(data.html);
+    };
+
+    main.addEventListener('submit', async (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      event.preventDefault();
+      const confirmMsg = event.submitter?.getAttribute('data-confirm') || form.getAttribute('data-confirm');
+      if (confirmMsg && !window.confirm(confirmMsg)) return;
+      try {
+        await submitForm(form, event.submitter);
+      } catch (err) {
+        window.alert(err.message || 'Request failed');
+      }
+    });
+
+    main.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.matches('input[data-announcement-toggle]')) return;
+      const wrapper = target.parentElement;
+      const track = wrapper?.querySelector('[data-toggle-track]');
+      const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+      const on = target.checked;
+      if (track) track.style.background = on ? '#22c55e' : '#1f2937';
+      if (thumb) thumb.style.left = on ? '24px' : '2px';
+    });
+
+    dismissFlash();
   })();
 </script>
