@@ -6,6 +6,7 @@ const {
   toggleCommand,
 } = require('../../state/customCommands');
 const { respondCommands } = require('./helpers');
+const { moderateText, DISALLOWED_MESSAGE, SELF_HARM_MESSAGE } = require('../../services/openai');
 
 function normalizeCommandKey(raw) {
   const trimmed = String(raw || '').trim();
@@ -51,6 +52,13 @@ function createCommandsController({ app, reservedCommands }) {
         const key = normalizeCommandKey(name);
         if (reserved && key && reserved.has(key)) {
           throw new Error(`"${name}" is reserved by a built-in command.`);
+        }
+        const moderation = await moderateText(response);
+        if (moderation === 'self_harm') {
+          throw new Error(SELF_HARM_MESSAGE);
+        }
+        if (moderation === 'block') {
+          throw new Error(DISALLOWED_MESSAGE);
         }
         upsertCommand(account.id, { id, name, response, platform, enabled });
         const commands = loadAccountCommands(account.id);

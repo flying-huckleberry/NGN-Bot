@@ -60,6 +60,12 @@ async function getModerationAction(input) {
   }
 }
 
+async function moderateText(input) {
+  const text = String(input || '').trim();
+  if (!text) return 'ok';
+  return getModerationAction(text);
+}
+
 /**
  * Ask OpenAI for a reply that fits into a single YouTube chat message.
  * - strict character budget
@@ -137,6 +143,7 @@ module.exports = {
   openai, // exported in case we need raw client access elsewhere
   askGPT,
   getModerationAction,
+  moderateText,
   DISALLOWED_MESSAGE,
   SELF_HARM_MESSAGE,
 };

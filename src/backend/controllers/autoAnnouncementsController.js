@@ -8,6 +8,7 @@ const {
   MAX_INTERVAL_MINUTES,
 } = require('../../state/autoAnnouncements');
 const { respondAutoAnnouncements } = require('./helpers');
+const { moderateText, DISALLOWED_MESSAGE, SELF_HARM_MESSAGE } = require('../../services/openai');
 const { AUTO_ANNOUNCEMENTS_MAX } = require('../../config/env');
 const { loadAccountRuntime } = require('../../state/accountRuntime');
 
@@ -48,6 +49,13 @@ function createAutoAnnouncementsController({ app, refreshAutoAnnouncements }) {
       const id = String(req.body?.id || '').trim();
 
       try {
+        const moderation = await moderateText(message);
+        if (moderation === 'self_harm') {
+          throw new Error(SELF_HARM_MESSAGE);
+        }
+        if (moderation === 'block') {
+          throw new Error(DISALLOWED_MESSAGE);
+        }
         upsertAnnouncement(account.id, {
           id,
           name,
