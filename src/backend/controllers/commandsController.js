@@ -7,7 +7,15 @@ const {
 } = require('../../state/customCommands');
 const { respondCommands } = require('./helpers');
 
-function createCommandsController({ app }) {
+function normalizeCommandKey(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  const withoutPrefix = trimmed.startsWith('!') ? trimmed.slice(1) : trimmed;
+  return withoutPrefix.toLowerCase();
+}
+
+function createCommandsController({ app, reservedCommands }) {
+  const reserved = reservedCommands instanceof Set ? reservedCommands : null;
   return {
     async listCommands(req, res) {
       const account = getAccountById(req.params.id);
@@ -40,6 +48,10 @@ function createCommandsController({ app }) {
       const id = String(req.body?.id || '').trim();
 
       try {
+        const key = normalizeCommandKey(name);
+        if (reserved && key && reserved.has(key)) {
+          throw new Error(`"${name}" is reserved by a built-in command.`);
+        }
         upsertCommand(account.id, { id, name, response, platform, enabled });
         const commands = loadAccountCommands(account.id);
         return respondCommands(app, req, res, {

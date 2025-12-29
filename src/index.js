@@ -132,6 +132,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         pollOnceWithDispatch(accountId, liveChatId, dispatch),
       getDiscordStatus,
       modules: registry.modules,
+      reservedCommands: new Set(Array.from(registry.flat.keys()).map((key) => String(key).toLowerCase())),
       refreshAutoAnnouncements: (accountId) => autoAnnouncements.refresh(accountId),
       autoAnnouncements,
     });

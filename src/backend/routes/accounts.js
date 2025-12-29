@@ -12,6 +12,7 @@ function registerAccountRoutes(app, {
   modules = {},
   refreshAutoAnnouncements,
   autoAnnouncements,
+  reservedCommands,
 }) {
   app.use(express.urlencoded({ extended: true }));
 
@@ -26,7 +27,7 @@ function registerAccountRoutes(app, {
     autoAnnouncements,
   });
   const modulesController = createModulesController({ app, moduleNames });
-  const commandsController = createCommandsController({ app });
+  const commandsController = createCommandsController({ app, reservedCommands });
   const autoAnnouncementsController = createAutoAnnouncementsController({
     app,
     refreshAutoAnnouncements,
