@@ -80,6 +80,7 @@ const {
   COINGECKO_TTL_MS = '60000',
   SEMANTIC_TARGET_WORD = '',
   AUTO_ANNOUNCEMENTS_MAX = '5',
+  CUSTOM_COMMANDS_MAX = '15',
 } = process.env;
 
 // validate critical oauth vars early
@@ -162,4 +163,7 @@ module.exports = {
 
   // Auto announcements
   AUTO_ANNOUNCEMENTS_MAX: Number(AUTO_ANNOUNCEMENTS_MAX) || 5,
+
+  // Custom commands
+  CUSTOM_COMMANDS_MAX: Number(CUSTOM_COMMANDS_MAX) || 15,
 };

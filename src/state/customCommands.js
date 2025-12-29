@@ -4,7 +4,7 @@ const {
   ensureAccountDir,
   getAccountFilePath,
 } = require('./accountPaths');
-const { MAX_CHARS } = require('../config/env');
+const { MAX_CHARS, CUSTOM_COMMANDS_MAX } = require('../config/env');
 
 const COMMANDS_FILE = 'commands.json';
 const cache = new Map();
@@ -108,6 +108,9 @@ function upsertCommand(accountId, payload) {
       createdAt: existing.createdAt || next.createdAt,
     };
   } else {
+    if (commands.length >= CUSTOM_COMMANDS_MAX) {
+      throw new Error(`You can only create ${CUSTOM_COMMANDS_MAX} custom commands.`);
+    }
     if (requestedId) {
       throw new Error('Command not found.');
     }
