@@ -25,9 +25,7 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
   function resetFailures(accountId) {
     const state = schedules.get(accountId);
     if (!state) return;
-    state.messageState.forEach((item) => {
-      item.failCount = 0;
-    });
+    state.failureStreak = 0;
   }
 
   function scheduleNext(accountId, delayMs) {
@@ -43,6 +41,7 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
     const state = {
       messageState: new Map(),
       timer: null,
+      failureStreak: 0,
     };
     schedules.set(accountId, state);
     return state;
@@ -114,7 +113,6 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
         }
         stateEntry = {
           nextRunAt,
-          failCount: 0,
           intervalMs,
         };
         state.messageState.set(key, stateEntry);
@@ -138,7 +136,7 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
           });
           const rendered = renderTemplate(String(item.message || '').trim(), values);
           await sendChatMessage(runtime.liveChatId, rendered);
-          stateEntry.failCount = 0;
+          state.failureStreak = 0;
           stateEntry.nextRunAt = now + intervalMs;
           // Persist lastSentAt so timing survives server restarts and
           // transport toggles without bunching all messages together.
@@ -149,20 +147,20 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
             nextRunAt: new Date(stateEntry.nextRunAt).toISOString(),
           });
         } catch (err) {
-          stateEntry.failCount += 1;
+          state.failureStreak += 1;
           stateEntry.nextRunAt = now + intervalMs;
           logger.error('Auto announcement send failed.', {
             accountId,
             name: item.name,
-            failCount: stateEntry.failCount,
+            failCount: state.failureStreak,
             error: err?.message || String(err),
           });
-          if (stateEntry.failCount >= FAILURE_LIMIT) {
+          if (state.failureStreak >= FAILURE_LIMIT) {
             const message = err?.message || String(err);
             logger.warn('Auto announcements paused after repeated failures.', {
               accountId,
               name: item.name,
-              failCount: stateEntry.failCount,
+              failCount: state.failureStreak,
               reason: message,
             });
             await handleFailure(accountId, message);
