@@ -82,6 +82,8 @@ const {
   AUTO_ANNOUNCEMENTS_MAX = '5',
   CUSTOM_COMMANDS_MAX = '15',
   DISCORD_MAX_CHARS = '1990',
+  DEV_AUTOPOLL_INTERVAL_MINUTES = '15',
+  MANUAL_POLL_MAX_PAGES = '100',
 } = process.env;
 
 // validate critical oauth vars early
@@ -170,4 +172,8 @@ module.exports = {
 
   // Discord
   DISCORD_MAX_CHARS: Number(DISCORD_MAX_CHARS) || 1990,
+
+  // Dev polling
+  DEV_AUTOPOLL_INTERVAL_MINUTES: Number(DEV_AUTOPOLL_INTERVAL_MINUTES) || 15,
+  MANUAL_POLL_MAX_PAGES: Number(MANUAL_POLL_MAX_PAGES) || 100,
 };

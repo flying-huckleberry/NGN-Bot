@@ -10,6 +10,8 @@ const {
   PORT,
   POLLING_FALLBACK_MS,
   BOT_START_MS,
+  DEV_AUTOPOLL_INTERVAL_MINUTES,
+  MANUAL_POLL_MAX_PAGES,
 } = require('./config/env');
 const { logger } = require('./utils/logger');
 
@@ -124,13 +126,38 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       },
     });
 
+    const devAutoPollTimers = new Map();
+
+    function startDevAutoPoll(accountId, liveChatId) {
+      if (!accountId || !liveChatId) return;
+      const intervalMs = Math.max(1, Number(DEV_AUTOPOLL_INTERVAL_MINUTES) || 15) * 60 * 1000;
+      if (devAutoPollTimers.has(accountId)) {
+        clearInterval(devAutoPollTimers.get(accountId));
+      }
+      const timer = setInterval(async () => {
+        try {
+          const settings = loadAccountSettings(accountId);
+          const runtime = loadAccountRuntime(accountId);
+          if (settings.youtube?.enabled === false || !runtime.liveChatId) {
+            clearInterval(timer);
+            devAutoPollTimers.delete(accountId);
+            return;
+          }
+          await pollOnceWithDispatch(accountId, runtime.liveChatId, dispatch, { maxPages: 1 });
+        } catch (err) {
+          logger.warn(`DEV auto-poll failed for ${accountId}: ${err?.message || err}`);
+        }
+      }, intervalMs);
+      devAutoPollTimers.set(accountId, timer);
+    }
+
     // 2) OAuth routes (save tokens, then startBot)
     mountAuthRoutes(app, { onAuthed: startBot });
 
     // 3) Account control panel routes
     registerAccountRoutes(app, {
       pollOnce: (accountId, liveChatId) =>
-        pollOnceWithDispatch(accountId, liveChatId, dispatch),
+        pollOnceWithDispatch(accountId, liveChatId, dispatch, { maxPages: MANUAL_POLL_MAX_PAGES }),
       getDiscordStatus,
       modules: registry.modules,
       reservedCommands: new Set(Array.from(registry.flat.keys()).map((key) => String(key).toLowerCase())),
@@ -206,86 +233,108 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       }
       updateAccountSettings(accountId, { youtube: { enabled: false } });
       autoAnnouncements.stop(accountId);
+      if (devAutoPollTimers.has(accountId)) {
+        clearInterval(devAutoPollTimers.get(accountId));
+        devAutoPollTimers.delete(accountId);
+      }
       logger.info(
         `YouTube transport reset for account "${account?.name || accountId}".`
       );
     }
 
-    async function pollOnceWithDispatch(accountId, liveChatId, dispatchFn) {
+    async function pollOnceWithDispatch(accountId, liveChatId, dispatchFn, options = {}) {
       const account = getAccountById(accountId);
       if (!account) throw new Error('Account not found.');
       const runtime = loadAccountRuntime(accountId);
       const settings = loadAccountSettings(accountId);
       const youtubeTransport = createYoutubeTransport(liveChatId);
-      let res;
-      try {
-        res = await listLiveChatMessages({
-          liveChatId,
-          part: ['snippet', 'authorDetails'],
-          pageToken: runtime.nextPageToken || undefined,
-          maxResults: 200,
-        });
-      } catch (err) {
-        const reason = err?.errors?.[0]?.reason || err?.message;
-        // If our saved page token went stale (e.g. long downtime), re-prime once to realign.
-        if (String(reason).toLowerCase().includes('invalidpagetoken')) {
-          const newToken = await primeChat(liveChatId);
+      const maxPages = Number.isFinite(Number(options.maxPages))
+        ? Math.max(1, Number(options.maxPages))
+        : 1;
+
+      let handled = 0;
+      let received = 0;
+      let pageToken = runtime.nextPageToken || undefined;
+
+      for (let page = 0; page < maxPages; page++) {
+        let res;
+        try {
           res = await listLiveChatMessages({
             liveChatId,
             part: ['snippet', 'authorDetails'],
-            pageToken: newToken || undefined,
+            pageToken,
             maxResults: 200,
           });
-          runtime.nextPageToken = newToken || runtime.nextPageToken;
-        } else if (isLiveChatStale(err)) {
-          resetYoutubeTransport(accountId, account);
-          return {
-            ok: false,
-            received: 0,
-            handled: 0,
-            ended: true,
-          };
-        } else {
-          throw err;
+        } catch (err) {
+          const reason = err?.errors?.[0]?.reason || err?.message;
+          // If our saved page token went stale (e.g. long downtime), re-prime once to realign.
+          if (String(reason).toLowerCase().includes('invalidpagetoken')) {
+            const newToken = await primeChat(liveChatId);
+            pageToken = newToken || undefined;
+            res = await listLiveChatMessages({
+              liveChatId,
+              part: ['snippet', 'authorDetails'],
+              pageToken,
+              maxResults: 200,
+            });
+          } else if (isLiveChatStale(err)) {
+            resetYoutubeTransport(accountId, account);
+            return {
+              ok: false,
+              received: 0,
+              handled: 0,
+              ended: true,
+            };
+          } else {
+            throw err;
+          }
         }
-      }
 
-      const items = res.data.items || [];
-      let handled = 0;
+        const items = res.data.items || [];
+        received += items.length;
 
-      for (const msg of items) {
-        if (msg?.snippet?.type !== 'textMessageEvent') continue;
+        for (const msg of items) {
+          if (msg?.snippet?.type !== 'textMessageEvent') continue;
 
-        // Ignore anything from before this bot instance started
-        const publishedAt = msg?.snippet?.publishedAt;
-        if (publishedAt && Date.parse(publishedAt) < BOT_START_MS) continue;
+          // Ignore anything from before this bot instance started
+          const publishedAt = msg?.snippet?.publishedAt;
+          if (publishedAt && Date.parse(publishedAt) < BOT_START_MS) continue;
 
-        await dispatchFn({
-          msg,
-          liveChatId,
-          transport: youtubeTransport,
-          platformMeta: {
-            youtube: {
-              channelId: runtime.youtubeChannelId || account.youtube?.channelId || null,
+          await dispatchFn({
+            msg,
+            liveChatId,
+            transport: youtubeTransport,
+            platformMeta: {
+              youtube: {
+                channelId: runtime.youtubeChannelId || account.youtube?.channelId || null,
+              },
             },
-          },
-          accountId: account.id,
-          accountSettings: settings,
-          account,
-          accountRuntime: runtime,
-        });
-        handled++;
+            accountId: account.id,
+            accountSettings: settings,
+            account,
+            accountRuntime: runtime,
+          });
+          handled++;
+        }
+
+        const nextToken = res.data.nextPageToken || pageToken;
+        if (!nextToken || nextToken === pageToken) {
+          pageToken = nextToken;
+          break;
+        }
+        pageToken = nextToken;
+
+        if (!items.length) break;
       }
 
-      runtime.nextPageToken = res.data.nextPageToken || runtime.nextPageToken;
+      runtime.nextPageToken = pageToken || runtime.nextPageToken;
       saveAccountRuntime(accountId, runtime);
 
       return {
         ok: true,
-        received: items.length,
+        received,
         handled,
         nextDelaySuggestedMs:
-          res.data.pollingIntervalMillis ??
           (Number.isFinite(+POLLING_FALLBACK_MS) ? +POLLING_FALLBACK_MS : 2000),
       };
     }
@@ -405,6 +454,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
           `${modeLabel}: Youtube - ${accountLabel} connected (${videoId}) via ${methodLabel}`
         );
         autoAnnouncements.refresh(account.id);
+        startDevAutoPoll(account.id, liveChatId);
       }
     }
 
@@ -427,6 +477,12 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
               settings.discord?.enabled === false ? 'routing disabled' : 'routing enabled';
             logger.info(`${modeLabel}: Discord - ${accountLabel} ${discordRouting}`);
             await startAccountBot(account, { autoPoll });
+            if (!autoPoll) {
+              const runtime = loadAccountRuntime(account.id);
+              if (runtime.liveChatId && runtime.primed) {
+                startDevAutoPoll(account.id, runtime.liveChatId);
+              }
+            }
           } catch (err) {
             logger.error('Failed to start account ' + account.name + ': ' + (err?.message || err));
           }
