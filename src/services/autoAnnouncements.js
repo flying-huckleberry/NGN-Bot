@@ -130,9 +130,11 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
             name: item.name,
             intervalSeconds: item.intervalSeconds,
           });
-          const values = buildTemplateValues({
+          const values = await buildTemplateValues({
             sender: '',
             accountRuntime: runtime,
+            accountId,
+            accountSettings: settings,
           });
           const rendered = renderTemplate(String(item.message || '').trim(), values);
           await sendChatMessage(runtime.liveChatId, rendered);

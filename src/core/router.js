@@ -117,9 +117,11 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
             account,
             accountRuntime,
           });
-          const values = buildTemplateValues({
+          const values = await buildTemplateValues({
             sender: ctx.mention(),
             accountRuntime: ctx.accountRuntime,
+            accountId,
+            accountSettings,
           });
           const rendered = renderTemplate(match.response, values);
           await ctx.reply(rendered);

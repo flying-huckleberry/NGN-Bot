@@ -1,5 +1,6 @@
 // src/utils/templateVars.js
 const { getQuotaInfo } = require('../state/quota');
+const { getWeatherSnapshot } = require('../services/weather');
 
 function formatLiveUptime(streamStartAt) {
   if (!streamStartAt) return 'unknown';
@@ -30,7 +31,7 @@ function formatLocalTime() {
   });
 }
 
-function buildTemplateValues({ sender, accountRuntime, quotaInfo }) {
+async function buildTemplateValues({ sender, accountRuntime, quotaInfo, accountId, accountSettings }) {
   const targetInfo = accountRuntime?.targetInfo || {};
   const channelName =
     targetInfo.channelName ||
@@ -39,6 +40,24 @@ function buildTemplateValues({ sender, accountRuntime, quotaInfo }) {
   const liveTitle = targetInfo.title || '';
   const streamStartAt = targetInfo.streamStartAt || null;
   const quota = quotaInfo || getQuotaInfo();
+
+  let weather = null;
+  try {
+    weather = await getWeatherSnapshot({
+      accountId,
+      settings: accountSettings?.weather || {},
+      disabledModules: accountSettings?.disabledModules || [],
+    });
+  } catch {
+    weather = null;
+  }
+
+  const weatherTemp = weather?.temperature;
+  const weatherWindSpeed = weather?.windSpeed;
+  const weatherWindDirection = weather?.windDirection;
+  const weatherPrecipitation = weather?.precipitation;
+  const weatherIsDayRaw = weather?.isDay;
+  const weatherUnits = weather?.units || {};
 
   return {
     sender: sender || '',
@@ -49,6 +68,21 @@ function buildTemplateValues({ sender, accountRuntime, quotaInfo }) {
       ? `${quota.percentUsed}%`
       : 'unknown',
     time_local: formatLocalTime(),
+    weather_temp: Number.isFinite(weatherTemp)
+      ? `${weatherTemp}${weatherUnits.temperature || ''}`
+      : 'unknown',
+    weather_wind_speed: Number.isFinite(weatherWindSpeed)
+      ? `${weatherWindSpeed} ${weatherUnits.wind || ''}`.trim()
+      : 'unknown',
+    weather_wind_dir: weatherWindDirection || 'unknown',
+    weather_precip: Number.isFinite(weatherPrecipitation)
+      ? `${weatherPrecipitation} ${weatherUnits.precipitation || ''}`.trim()
+      : 'unknown',
+    weather_is_day: weatherIsDayRaw === 1
+      ? 'daytime'
+      : weatherIsDayRaw === 0
+        ? 'nighttime'
+        : 'unknown',
   };
 }
 

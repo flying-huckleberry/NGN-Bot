@@ -1,6 +1,6 @@
 const { getAccountById } = require('../../state/accountsRepo');
 const { loadAccountSettings, updateAccountSettings } = require('../../state/accountSettings');
-const { respondModuleEdit, parseCsv, parseNumber } = require('./helpers');
+const { respondModuleEdit, parseCsv, parseNumber, wantsJson } = require('./helpers');
 
 function createModulesController({ app, moduleNames }) {
   return {
@@ -64,6 +64,36 @@ function createModulesController({ app, moduleNames }) {
               coingeckoTtlMs: cryptoTtlMs,
             },
           });
+        } else if (moduleKey === 'weather') {
+          // Weather settings are per account and used by template variables.
+          // We store raw decimal coordinates and unit tokens for OpenMeteo.
+          const latitudeRaw = String(req.body?.weatherLatitude || '').trim();
+          const longitudeRaw = String(req.body?.weatherLongitude || '').trim();
+          const temperatureUnit = String(req.body?.weatherTemperatureUnit || '').trim();
+          const windSpeedUnit = String(req.body?.weatherWindSpeedUnit || '').trim();
+          const precipitationUnit = String(req.body?.weatherPrecipitationUnit || '').trim();
+
+          // Allow blank values to disable weather without validation errors.
+          const latitude = latitudeRaw === '' ? '' : parseNumber(latitudeRaw);
+          const longitude = longitudeRaw === '' ? '' : parseNumber(longitudeRaw);
+
+          // Validate decimals when provided.
+          if (latitudeRaw !== '' && latitude === null) {
+            throw new Error('Latitude must be a decimal number.');
+          }
+          if (longitudeRaw !== '' && longitude === null) {
+            throw new Error('Longitude must be a decimal number.');
+          }
+
+          updateAccountSettings(account.id, {
+            weather: {
+              latitude: latitudeRaw === '' ? '' : String(latitude),
+              longitude: longitudeRaw === '' ? '' : String(longitude),
+              temperatureUnit,
+              windSpeedUnit,
+              precipitationUnit,
+            },
+          });
         } else {
           throw new Error('This module does not have editable settings yet.');
         }
@@ -80,6 +110,17 @@ function createModulesController({ app, moduleNames }) {
         });
       } catch (err) {
         const settings = loadAccountSettings(account.id);
+        if (wantsJson(req)) {
+          return respondModuleEdit(app, req, res, {
+            title: `Edit ${moduleName} - ${account.name}`,
+            active: 'accounts',
+            account,
+            moduleName,
+            settings,
+            message: null,
+            error: err.message || String(err),
+          });
+        }
         return res.status(400).render('modules/index', {
           title: `Edit ${moduleName} - ${account.name}`,
           active: 'accounts',

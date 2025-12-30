@@ -3,6 +3,7 @@
 <% const moduleLabel = moduleName ? moduleName.charAt(0).toUpperCase() + moduleName.slice(1) : 'Module'; %>
 <% const pageMessage = typeof message === 'undefined' ? null : message; %>
 <% const pageError = typeof error === 'undefined' ? null : error; %>
+<% const weatherSettings = settings?.weather || {}; %>
 
 <div id="module-root" style="position:relative;">
   <%- include('../partials/flash', { message: pageMessage, error: pageError }) %>
@@ -47,7 +48,43 @@
         </div>
       <% } %>
 
-      <% if (moduleKey === 'racing' || moduleKey === 'crypto') { %>
+      <% if (moduleKey === 'weather') { %>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Latitude
+            <input name="weatherLatitude" type="text" value="<%= weatherSettings.latitude || '' %>" placeholder="37.9748" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Longitude
+            <input name="weatherLongitude" type="text" value="<%= weatherSettings.longitude || '' %>" placeholder="-87.5559" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Temperature Unit
+            <select name="weatherTemperatureUnit" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;">
+              <option value="" <%= !weatherSettings.temperatureUnit ? 'selected' : '' %>>Celsius</option>
+              <option value="fahrenheit" <%= weatherSettings.temperatureUnit === 'fahrenheit' ? 'selected' : '' %>>Fahrenheit</option>
+            </select>
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Wind Speed Unit
+            <select name="weatherWindSpeedUnit" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;">
+              <option value="" <%= !weatherSettings.windSpeedUnit ? 'selected' : '' %>>Kilometers / hour</option>
+              <option value="mph" <%= weatherSettings.windSpeedUnit === 'mph' ? 'selected' : '' %>>Miles / hour</option>
+              <option value="ms" <%= weatherSettings.windSpeedUnit === 'ms' ? 'selected' : '' %>>Meters / second</option>
+              <option value="kn" <%= weatherSettings.windSpeedUnit === 'kn' ? 'selected' : '' %>>Knots</option>
+            </select>
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Precipitation Unit
+            <select name="weatherPrecipitationUnit" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;">
+              <option value="" <%= !weatherSettings.precipitationUnit ? 'selected' : '' %>>Millimeters</option>
+              <option value="inch" <%= weatherSettings.precipitationUnit === 'inch' ? 'selected' : '' %>>Inches</option>
+            </select>
+          </label>
+        </div>
+      <% } %>
+
+      <% if (moduleKey === 'racing' || moduleKey === 'crypto' || moduleKey === 'weather') { %>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save Module Settings</button>
         </div>

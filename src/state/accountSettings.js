@@ -46,6 +46,13 @@ function defaultSettings() {
       startingCash: Number(env.CRYPTO_STARTING_CASH) || 1000,
       coingeckoTtlMs: Number(env.COINGECKO_TTL_MS) || 0,
     },
+    weather: {
+      latitude: '',
+      longitude: '',
+      temperatureUnit: 'fahrenheit',
+      windSpeedUnit: 'mph',
+      precipitationUnit: 'inch',
+    },
   };
 }
 
@@ -98,6 +105,14 @@ function normalizeSettings(settings) {
     next.crypto.allowedCoins = base.crypto.allowedCoins.slice();
   }
 
+  next.weather = {
+    latitude: String(next.weather?.latitude ?? base.weather.latitude ?? '').trim(),
+    longitude: String(next.weather?.longitude ?? base.weather.longitude ?? '').trim(),
+    temperatureUnit: String(next.weather?.temperatureUnit ?? base.weather.temperatureUnit ?? '').trim(),
+    windSpeedUnit: String(next.weather?.windSpeedUnit ?? base.weather.windSpeedUnit ?? '').trim(),
+    precipitationUnit: String(next.weather?.precipitationUnit ?? base.weather.precipitationUnit ?? '').trim(),
+  };
+
   return next;
 }
 
@@ -141,6 +156,7 @@ function updateAccountSettings(accountId, updates = {}) {
     race: { ...current.race, ...(updates.race || {}) },
     discord: { ...current.discord, ...(updates.discord || {}) },
     crypto: { ...current.crypto, ...(updates.crypto || {}) },
+    weather: { ...current.weather, ...(updates.weather || {}) },
   };
   return saveAccountSettings(accountId, next);
 }
@@ -164,6 +180,11 @@ function buildAccountEnv(settings) {
     CRYPTO_ALLOWED_COINS: normalized.crypto.allowedCoins,
     CRYPTO_STARTING_CASH: normalized.crypto.startingCash,
     COINGECKO_TTL_MS: normalized.crypto.coingeckoTtlMs,
+    WEATHER_LATITUDE: normalized.weather.latitude,
+    WEATHER_LONGITUDE: normalized.weather.longitude,
+    WEATHER_TEMPERATURE_UNIT: normalized.weather.temperatureUnit,
+    WEATHER_WIND_SPEED_UNIT: normalized.weather.windSpeedUnit,
+    WEATHER_PRECIPITATION_UNIT: normalized.weather.precipitationUnit,
   };
 }
 
