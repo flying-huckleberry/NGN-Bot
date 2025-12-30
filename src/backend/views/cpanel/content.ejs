@@ -300,11 +300,6 @@
         <%= (autoAnnouncements && autoAnnouncements.length) ? `${autoAnnouncements.length} total` : 'None configured' %>
       </span>
     </div>
-    <% if (runtime?.autoAnnouncementsPaused) { %>
-      <div style="margin-top:10px; font-size:0.85rem; color:#fecaca;">
-        Paused after repeated send failures. Re-enable YouTube transport to resume.
-      </div>
-    <% } %>
   </div>
 
   <div data-commands-accordion style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px; transition:background 0.2s ease;">

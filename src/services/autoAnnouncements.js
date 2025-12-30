@@ -1,11 +1,10 @@
 // src/services/autoAnnouncements.js
 const { loadAccountAnnouncements, updateAnnouncementLastSent } = require('../state/autoAnnouncements');
 const { buildTemplateValues, renderTemplate } = require('../utils/templateVars');
-const { loadAccountRuntime, saveAccountRuntime } = require('../state/accountRuntime');
-const { loadAccountSettings, updateAccountSettings } = require('../state/accountSettings');
+const { loadAccountRuntime } = require('../state/accountRuntime');
+const { loadAccountSettings } = require('../state/accountSettings');
 const { logger } = require('../utils/logger');
 
-const FAILURE_LIMIT = 2;
 const FALLBACK_CHECK_MS = 30000;
 
   function normalizeId(raw) {
@@ -22,12 +21,6 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
     schedules.delete(accountId);
   }
 
-  function resetFailures(accountId) {
-    const state = schedules.get(accountId);
-    if (!state) return;
-    state.failureStreak = 0;
-  }
-
   function scheduleNext(accountId, delayMs) {
     const state = schedules.get(accountId);
     if (!state) return;
@@ -41,33 +34,9 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
     const state = {
       messageState: new Map(),
       timer: null,
-      failureStreak: 0,
     };
     schedules.set(accountId, state);
     return state;
-  }
-
-  async function handleFailure(accountId, reason) {
-    const runtime = loadAccountRuntime(accountId);
-    runtime.liveChatId = null;
-    runtime.nextPageToken = null;
-    runtime.primed = false;
-    runtime.youtubeChannelId = null;
-    runtime.resolvedMethod = null;
-    runtime.targetInfo = {};
-    runtime.autoAnnouncementsPaused = true;
-    runtime.autoAnnouncementsPausedAt = new Date().toISOString();
-    runtime.autoAnnouncementsPausedReason = reason || 'Auto announcements paused due to send failures.';
-    saveAccountRuntime(accountId, runtime);
-
-    updateAccountSettings(accountId, {
-      youtube: { enabled: false },
-    });
-
-    stop(accountId);
-    if (typeof onTransportDown === 'function') {
-      await onTransportDown(accountId, reason);
-    }
   }
 
   async function tick(accountId) {
@@ -136,7 +105,6 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
           });
           const rendered = renderTemplate(String(item.message || '').trim(), values);
           await sendChatMessage(runtime.liveChatId, rendered);
-          state.failureStreak = 0;
           stateEntry.nextRunAt = now + intervalMs;
           // Persist lastSentAt so timing survives server restarts and
           // transport toggles without bunching all messages together.
@@ -147,25 +115,12 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
             nextRunAt: new Date(stateEntry.nextRunAt).toISOString(),
           });
         } catch (err) {
-          state.failureStreak += 1;
           stateEntry.nextRunAt = now + intervalMs;
           logger.error('Auto announcement send failed.', {
             accountId,
             name: item.name,
-            failCount: state.failureStreak,
             error: err?.message || String(err),
           });
-          if (state.failureStreak >= FAILURE_LIMIT) {
-            const message = err?.message || String(err);
-            logger.warn('Auto announcements paused after repeated failures.', {
-              accountId,
-              name: item.name,
-              failCount: state.failureStreak,
-              reason: message,
-            });
-            await handleFailure(accountId, message);
-            return;
-          }
         }
       }
 
@@ -208,22 +163,10 @@ function createAutoAnnouncementsManager({ sendChatMessage, onTransportDown }) {
     start(accountId);
   }
 
-  function clearPausedState(accountId) {
-    const runtime = loadAccountRuntime(accountId);
-    if (runtime.autoAnnouncementsPaused) {
-      runtime.autoAnnouncementsPaused = false;
-      runtime.autoAnnouncementsPausedAt = null;
-      runtime.autoAnnouncementsPausedReason = '';
-      saveAccountRuntime(accountId, runtime);
-    }
-  }
-
   return {
     start,
     stop,
     refresh,
-    resetFailures,
-    clearPausedState,
   };
 }
 

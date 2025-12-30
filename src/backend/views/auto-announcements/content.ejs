@@ -1,19 +1,12 @@
 <% const pageMessage = typeof message === 'undefined' ? null : message; %>
 <% const pageError = typeof error === 'undefined' ? null : error; %>
 <% const safeAnnouncements = Array.isArray(announcements) ? announcements : []; %>
-<% const paused = runtime?.autoAnnouncementsPaused === true; %>
 
 <div style="position:relative;">
   <%- include('../partials/flash', { message: pageMessage, error: pageError }) %>
   <h2>Auto Announcements</h2>
   <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
   <p><a href="/accounts/<%= account.id %>/cpanel" style="color:#93c5fd; text-decoration:none;">&larr; Back to control panel</a></p>
-
-  <% if (paused) { %>
-    <div style="background:#3b0d0d; border:1px solid #7f1d1d; color:#fee2e2; padding:12px 14px; border-radius:10px; margin-top:12px;">
-      Auto announcements are paused after repeated send failures. Re-enable YouTube transport to resume.
-    </div>
-  <% } %>
 
   <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-top:16px;">
     <h3 style="margin-top:0; color:#cbd5e1;">Add Auto Announcement</h3>

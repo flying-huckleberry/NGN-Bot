@@ -201,12 +201,6 @@ function createCpanelController({
 
       if (shouldReuseRuntime) {
         updateAccountSettings(account.id, { youtube: { enabled: true } });
-        if (autoAnnouncements?.clearPausedState) {
-          autoAnnouncements.clearPausedState(account.id);
-        }
-        if (autoAnnouncements?.resetFailures) {
-          autoAnnouncements.resetFailures(account.id);
-        }
         if (autoAnnouncements?.refresh) {
           autoAnnouncements.refresh(account.id);
         }
@@ -245,12 +239,6 @@ function createCpanelController({
         runtime.targetInfo = targetInfo || {};
         saveAccountRuntime(account.id, runtime);
         updateAccountSettings(account.id, { youtube: { enabled: true } });
-        if (autoAnnouncements?.clearPausedState) {
-          autoAnnouncements.clearPausedState(account.id);
-        }
-        if (autoAnnouncements?.resetFailures) {
-          autoAnnouncements.resetFailures(account.id);
-        }
         if (autoAnnouncements?.refresh) {
           autoAnnouncements.refresh(account.id);
         }
@@ -347,12 +335,6 @@ function createCpanelController({
           updateAccountSettings(account.id, {
             youtube: { enabled: true },
           });
-        }
-        if (autoAnnouncements?.clearPausedState) {
-          autoAnnouncements.clearPausedState(account.id);
-        }
-        if (autoAnnouncements?.resetFailures) {
-          autoAnnouncements.resetFailures(account.id);
         }
         if (autoAnnouncements?.refresh) {
           autoAnnouncements.refresh(account.id);

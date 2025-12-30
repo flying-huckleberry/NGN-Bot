@@ -122,7 +122,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       sendChatMessage,
       onTransportDown: async (accountId) => {
         const account = getAccountById(accountId);
-        resetYoutubeTransport(accountId, account, { preserveAutoAnnouncementsPause: true });
+        resetYoutubeTransport(accountId, account);
       },
     });
 
@@ -218,19 +218,8 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       );
     }
 
-    function resetYoutubeTransport(accountId, account, options = {}) {
-      const existing = loadAccountRuntime(accountId);
-      const paused = Boolean(existing.autoAnnouncementsPaused);
-      const pauseAt = existing.autoAnnouncementsPausedAt || null;
-      const pauseReason = existing.autoAnnouncementsPausedReason || '';
+    function resetYoutubeTransport(accountId, account) {
       resetAccountRuntime(accountId);
-      if (options.preserveAutoAnnouncementsPause && paused) {
-        saveAccountRuntime(accountId, {
-          autoAnnouncementsPaused: true,
-          autoAnnouncementsPausedAt: pauseAt,
-          autoAnnouncementsPausedReason: pauseReason,
-        });
-      }
       updateAccountSettings(accountId, { youtube: { enabled: false } });
       autoAnnouncements.stop(accountId);
       if (devAutoPollTimers.has(accountId)) {
@@ -441,8 +430,6 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         .replace(/\s*\(.*?\)\s*/g, '')
         .trim();
       const videoId = targetInfo?.videoId || 'unknown';
-      autoAnnouncements.clearPausedState(account.id);
-      autoAnnouncements.resetFailures(account.id);
       if (autoPoll) {
         logger.info(
           `${modeLabel}: Youtube - ${accountLabel} connected (${videoId}) via ${methodLabel}`

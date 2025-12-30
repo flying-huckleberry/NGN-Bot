@@ -18,9 +18,6 @@ function defaultRuntime() {
     // Capture how we resolved the live chat (override vs account config) for UI display.
     resolvedMethod: null,
     targetInfo: {},
-    autoAnnouncementsPaused: false,
-    autoAnnouncementsPausedAt: null,
-    autoAnnouncementsPausedReason: '',
   };
 }
 
