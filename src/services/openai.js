@@ -1,12 +1,19 @@
 // src/services/openai.js
 const OpenAI = require('openai');
-const { OPENAI_API_KEY, OPENAI_MODEL, MAX_CHARS } = require('../config/env');
+const {
+  OPENAI_API_KEY,
+  OPENAI_MODEL,
+  MAX_CHARS,
+  DISCORD_MAX_CHARS,
+} = require('../config/env');
 const { logger } = require('../utils/logger'); 
 
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 const DISALLOWED_MESSAGE =
   'The topic of your message is not appropriate for a YouTube live chat. Please keep it clean, civil, and respectful.';
+const DISCORD_DISALLOWED_MESSAGE =
+  'The topic of your message is not appropriate for a Christian Minecraft Server. Please keep it clean, civil, and respectful.';
 
 const SELF_HARM_MESSAGE =
   'If you are feeling unsafe or thinking about self-harm, please reach out to a trusted person or local emergency / mental health hotline. You are not alone.';
@@ -139,7 +146,7 @@ async function askYoutube(prompt, maxChars = MAX_CHARS) {
   }
 }
 
-async function askDiscord(prompt, maxChars = MAX_CHARS) {
+async function askDiscord(prompt, maxChars = DISCORD_MAX_CHARS) {
   const targetTokens = Math.max(16, Math.min(100, Math.floor(maxChars / 4)));
 
   // TODO: Edit this system prompt for Discord-specific context.
@@ -151,7 +158,7 @@ async function askDiscord(prompt, maxChars = MAX_CHARS) {
     CRITICAL RULE:
     If the user question contains ANY sexual content, sexual acts, porn, who had sex with whom, adult content, racism, hate speech, or sexism,
     you MUST NOT answer the question.
-    In those cases, reply with EXACTLY this sentence and nothing else: "${DISALLOWED_MESSAGE}"
+    In those cases, reply with EXACTLY this sentence and nothing else: "${DISCORD_DISALLOWED_MESSAGE}"
     Do NOT explain, do NOT partly answer, and do NOT mention this rule.
 
     SELF-HARM RULE:
@@ -174,7 +181,7 @@ async function askDiscord(prompt, maxChars = MAX_CHARS) {
       return SELF_HARM_MESSAGE;
     }
     if (action === 'block') {
-      return DISALLOWED_MESSAGE;
+      return DISCORD_DISALLOWED_MESSAGE;
     }
 
     const completion = await openai.chat.completions.create({
