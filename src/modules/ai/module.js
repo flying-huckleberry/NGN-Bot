@@ -1,5 +1,5 @@
 // src/modules/ai/module.js
-const { askGPT } = require('../../services/openai');
+const { askYoutube, askDiscord } = require('../../services/openai');
 const { MAX_CHARS } = require('../../config/env');
 
 module.exports = {
@@ -21,7 +21,10 @@ module.exports = {
         const q = ctx.args.join(' ').trim();
         if (!q) return ctx.reply(`Usage: ${ctx.commandPrefix}ai ask <question>`);
 
-        let reply = await askGPT(q, MAX_CHARS);
+        const isDiscord = ctx.platform === 'discord';
+        let reply = isDiscord
+          ? await askDiscord(q, MAX_CHARS)
+          : await askYoutube(q, MAX_CHARS);
         ctx.logger.info(`🧠 ai.ask → ${q}`);
         if (!reply) reply = 'NO REPLY FROM AI!';
 

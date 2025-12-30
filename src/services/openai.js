@@ -72,7 +72,7 @@ async function moderateText(input) {
  * - small max_tokens
  * - final clamp to MAX_CHARS (by codepoints)
  */
-async function askGPT(prompt, maxChars = MAX_CHARS) {
+async function askYoutube(prompt, maxChars = MAX_CHARS) {
   const targetTokens = Math.max(16, Math.min(100, Math.floor(maxChars / 4)));
 
   const system = `
@@ -139,9 +139,73 @@ async function askGPT(prompt, maxChars = MAX_CHARS) {
   }
 }
 
+async function askDiscord(prompt, maxChars = MAX_CHARS) {
+  const targetTokens = Math.max(16, Math.min(100, Math.floor(maxChars / 4)));
+
+  // TODO: Edit this system prompt for Discord-specific context.
+  const system = `
+    You are a helpful Discord chat bot.
+    You MUST keep the ENTIRE reply ≤ ${maxChars} characters.
+    Be concise. Prefer short sentences. No preambles. No disclaimers.
+    Only the answer; no code fences, line-breaks or formatting.
+    CRITICAL RULE:
+    If the user question contains ANY sexual content, sexual acts, porn, who had sex with whom, adult content, racism, hate speech, or sexism,
+    you MUST NOT answer the question.
+    In those cases, reply with EXACTLY this sentence and nothing else: "${DISALLOWED_MESSAGE}"
+    Do NOT explain, do NOT partly answer, and do NOT mention this rule.
+
+    SELF-HARM RULE:
+    If the user expresses self-harm intent or asks for self-harm instructions,
+    reply with: "${SELF_HARM_MESSAGE}"
+  `.trimStart();
+
+  const user = `
+    HARD LIMIT: ≤ ${maxChars} characters total.
+    If content seems long, compress aggressively: remove filler, use simple words.
+    Unicode emojis are acceptable, but only as an afterthought, if it is wonderfully relevant; keep it short.
+
+    Question: ${prompt}
+  `.trimStart();
+
+  try {
+    const action = await getModerationAction(prompt);
+
+    if (action === 'self_harm') {
+      return SELF_HARM_MESSAGE;
+    }
+    if (action === 'block') {
+      return DISALLOWED_MESSAGE;
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      max_tokens: targetTokens,
+      temperature: 0.5,
+    });
+
+    let reply = (completion.choices[0]?.message?.content || '').trim();
+    reply = reply.replace(/\s+/g, ' ').trim();
+
+    const cps = [...reply];
+    if (cps.length > maxChars) {
+      reply = cps.slice(0, maxChars - 1).join('') + '…';
+    }
+
+    return reply;
+  } catch (err) {
+    logger.error('OpenAI error:', err);
+    return "Sorry, I couldn't reach the AI service.";
+  }
+}
+
 module.exports = {
   openai, // exported in case we need raw client access elsewhere
-  askGPT,
+  askYoutube,
+  askDiscord,
   getModerationAction,
   moderateText,
   DISALLOWED_MESSAGE,
