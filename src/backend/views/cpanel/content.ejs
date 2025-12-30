@@ -12,6 +12,7 @@
 <% const discordConnected = discordState === 'ready'; %>
 <% const disabledSet = new Set((settings?.disabledModules || []).map((name) => String(name || '').toLowerCase())); %>
 <% const allowedChannelsCsv = (settings?.discord?.allowedChannelIds || []).join(','); %>
+<% const timezone = settings?.timezone || ''; %>
 
 <div id="cpanel-root" style="position:relative;">
   <%- include('../partials/flash', { message, error }) %>
@@ -354,6 +355,15 @@
           Command Prefix
           <input name="commandPrefix" type="text" maxlength="1" value="<%= settings?.commandPrefix || '!' %>" style="padding:8px 10px; width:60px; text-align:center; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
         </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Timezone
+          <select name="timezone" data-timezone-select style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;">
+            <option value="">Use server timezone</option>
+            <% if (timezone) { %>
+              <option value="<%= timezone %>" selected><%= timezone %></option>
+            <% } %>
+          </select>
+        </label>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save Settings</button>
@@ -370,6 +380,77 @@
     const attachHandlers = () => {
       const root = document.getElementById('cpanel-root');
       if (!root) return;
+
+      const initTimezoneSelect = () => {
+        // Build a searchable timezone selector from Intl.supportedValuesOf.
+        const select = root.querySelector('select[data-timezone-select]');
+        if (!select || select.dataset.tomSelect === 'true') return;
+
+        const zones = typeof Intl.supportedValuesOf === 'function'
+          ? Intl.supportedValuesOf('timeZone')
+          : [];
+        const fallback = [
+          'UTC',
+          'America/New_York',
+          'America/Chicago',
+          'America/Denver',
+          'America/Los_Angeles',
+          'Europe/London',
+          'Europe/Paris',
+          'Asia/Tokyo',
+        ];
+        const list = zones.length ? zones : fallback;
+
+        // Keep any previously saved timezone even if it isn't in the runtime list.
+        const current = select.value;
+        select.innerHTML = '';
+
+        if (!current) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = '';
+          opt.selected = true;
+          select.appendChild(opt);
+        }
+
+        list.forEach((zone) => {
+          const opt = document.createElement('option');
+          opt.value = zone;
+          opt.textContent = zone;
+          if (zone === current) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        if (current && !list.includes(current)) {
+          const opt = document.createElement('option');
+          opt.value = current;
+          opt.textContent = current;
+          opt.selected = true;
+          select.appendChild(opt);
+        }
+
+        const applyTomSelect = () => {
+          // Tom Select enhances the native select with search + styling.
+          if (!window.TomSelect) return false;
+          // eslint-disable-next-line no-new
+          new TomSelect(select, {
+            create: false,
+            allowEmptyOption: true,
+            searchField: ['text'],
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: 'Search timezone...',
+            maxItems: 1,
+          });
+          select.dataset.tomSelect = 'true';
+          return true;
+        };
+
+        if (!applyTomSelect()) {
+          setTimeout(() => {
+            applyTomSelect();
+          }, 100);
+        }
+      };
 
       const flash = document.getElementById('cpanel-flash');
       if (flash) {
@@ -701,6 +782,7 @@
       bindModuleCardHover();
       bindLiveChatToggle();
       bindCommandsAccordion();
+      initTimezoneSelect();
     };
 
     attachHandlers();

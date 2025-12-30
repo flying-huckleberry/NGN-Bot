@@ -52,6 +52,7 @@ function registerAccountRoutes(app, {
 
   app.get('/accounts/:id/modules/:module', modulesController.getModule);
   app.post('/accounts/:id/modules/:module', modulesController.updateModule);
+  app.get('/accounts/:id/modules/:module/geocode', modulesController.geocodeWeather);
 
   app.post('/accounts/:id/cpanel/modules', cpanelController.toggleModule);
   app.post('/accounts/:id/cpanel/transports', cpanelController.toggleTransport);

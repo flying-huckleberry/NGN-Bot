@@ -93,6 +93,7 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'backend', 'views'));
     app.locals.mode = MODE;
+    app.use('/vendor', express.static(path.join(__dirname, '..', 'node_modules')));
 
     migrateDevStateToDefaultAccount();
 

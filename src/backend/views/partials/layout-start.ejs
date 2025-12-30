@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title><%= title || 'Chat Bot Panel' %></title>
+    <link rel="stylesheet" href="/vendor/tom-select/dist/css/tom-select.css" />
     <style>
       * { box-sizing: border-box; }
       body {
@@ -65,6 +66,60 @@
         padding: 2px 4px;
         border-radius: 4px;
         font-size: 0.9em;
+      }
+      .ts-wrapper {
+        width: 100%;
+      }
+      .ts-wrapper.single .ts-control {
+        background: #0f172a !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px;
+        color: #e5e7eb;
+        padding: 6px 8px;
+        min-height: 40px;
+        box-shadow: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+      }
+      .ts-wrapper.single .ts-control input {
+        color: #e5e7eb !important;
+        font-size: 0.95rem;
+        flex: 1 1 100%;
+        min-width: 0;
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 6px;
+        padding: 4px 6px;
+      }
+      .ts-wrapper.single .ts-control input::placeholder {
+        color: #64748b;
+      }
+      .ts-wrapper.single .ts-control .item {
+        color: #e5e7eb;
+        font-size: 0.95rem;
+        flex: 1 1 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ts-dropdown {
+        background: #0b1224;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
+        color: #e5e7eb;
+      }
+      .ts-dropdown .option {
+        padding: 6px 10px;
+        color: #e5e7eb;
+      }
+      .ts-dropdown .active {
+        background: #1b2c4d;
+        color: #e5e7eb;
+      }
+      .ts-dropdown .option:hover {
+        background: #1b2c4d;
       }
     </style>
   </head>

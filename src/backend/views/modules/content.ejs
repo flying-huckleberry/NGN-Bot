@@ -50,13 +50,38 @@
 
       <% if (moduleKey === 'weather') { %>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; position:relative;">
+            Search Location
+            <input data-weather-search type="text" autocomplete="off" placeholder="City, state, country" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            <div data-weather-results style="
+              position:absolute;
+              top:100%;
+              left:0;
+              right:0;
+              margin-top:6px;
+              display:none;
+              flex-direction:column;
+              gap:4px;
+              background:#0b1224;
+              border:1px solid #1f2937;
+              border-radius:8px;
+              padding:6px;
+              max-height:220px;
+              overflow:auto;
+              z-index:20;
+            "></div>
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+            Location Label
+            <input name="weatherLocationLabel" type="text" value="<%= weatherSettings.locationLabel || '' %>" placeholder="" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+          </label>
           <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
             Latitude
-            <input name="weatherLatitude" type="text" value="<%= weatherSettings.latitude || '' %>" placeholder="37.9748" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            <input name="weatherLatitude" type="text" value="<%= weatherSettings.latitude || '' %>" placeholder="" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
             Longitude
-            <input name="weatherLongitude" type="text" value="<%= weatherSettings.longitude || '' %>" placeholder="-87.5559" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            <input name="weatherLongitude" type="text" value="<%= weatherSettings.longitude || '' %>" placeholder="" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
             Temperature Unit
@@ -151,6 +176,88 @@
           }
         });
       });
+
+      const bindWeatherSearch = () => {
+        // Weather location search (Open-Meteo geocoding) with a floating dropdown.
+        const input = root.querySelector('[data-weather-search]');
+        const resultsBox = root.querySelector('[data-weather-results]');
+        if (!input || !resultsBox) return;
+        let debounce = null;
+
+        const renderResults = (items) => {
+          // Render a lightweight option list without reflowing the form.
+          resultsBox.innerHTML = '';
+          if (!items.length) {
+            resultsBox.style.display = 'none';
+            return;
+          }
+          resultsBox.style.display = 'flex';
+          items.forEach((item) => {
+            const label = [item.name, item.admin1, item.country]
+              .filter(Boolean)
+              .join(', ');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = label;
+            btn.style.textAlign = 'left';
+            btn.style.background = '#0f172a';
+            btn.style.color = '#e5e7eb';
+            btn.style.border = '1px solid #1f2937';
+            btn.style.borderRadius = '6px';
+            btn.style.padding = '6px 8px';
+            btn.style.cursor = 'pointer';
+            btn.addEventListener('click', () => {
+              // Selecting a result populates the hidden fields for saving.
+              const latField = root.querySelector('input[name="weatherLatitude"]');
+              const lonField = root.querySelector('input[name="weatherLongitude"]');
+              const labelField = root.querySelector('input[name="weatherLocationLabel"]');
+              if (latField) latField.value = item.latitude ?? '';
+              if (lonField) lonField.value = item.longitude ?? '';
+              if (labelField) labelField.value = label;
+              resultsBox.style.display = 'none';
+              input.value = '';
+            });
+            resultsBox.appendChild(btn);
+          });
+        };
+
+        const doSearch = async (query) => {
+          // Debounced API search to avoid spamming requests while typing.
+          try {
+            const res = await fetch(`/accounts/<%= account.id %>/modules/weather/geocode?q=${encodeURIComponent(query)}`);
+            if (!res.ok) throw new Error('Geocode failed');
+            const data = await res.json();
+            renderResults(Array.isArray(data?.results) ? data.results : []);
+          } catch (err) {
+            renderResults([]);
+          }
+        };
+
+        const hideResults = () => {
+          // Hide dropdown when input is cleared or focus is lost.
+          resultsBox.style.display = 'none';
+        };
+
+        input.addEventListener('input', () => {
+          const query = String(input.value || '').trim();
+          if (debounce) clearTimeout(debounce);
+          if (query.length < 2) {
+            hideResults();
+            return;
+          }
+          debounce = setTimeout(() => {
+            doSearch(query);
+          }, 400);
+        });
+
+        document.addEventListener('click', (event) => {
+          if (!resultsBox.contains(event.target) && event.target !== input) {
+            hideResults();
+          }
+        });
+      };
+
+      bindWeatherSearch();
     };
 
     attachHandlers();

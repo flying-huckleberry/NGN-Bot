@@ -72,6 +72,7 @@ function createAccountsController({ app, moduleNames, getDiscordStatus }) {
       const allowedChannelIds = parseCsv(req.body?.discordAllowedChannelIds || '');
       const rawPrefix = String(req.body?.commandPrefix || '').trim();
       const commandPrefix = rawPrefix ? rawPrefix[0] : '!';
+      const timezone = String(req.body?.timezone || '').trim();
 
       try {
         const { account: updated, previousId } = updateAccount(account.id, {
@@ -82,6 +83,7 @@ function createAccountsController({ app, moduleNames, getDiscordStatus }) {
 
         updateAccountSettings(updated.id, {
           commandPrefix,
+          timezone,
           youtube: {
             enabled: settings.youtube?.enabled ?? true,
           },

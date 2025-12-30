@@ -20,15 +20,19 @@ function formatLiveUptime(streamStartAt) {
   return `${minutes} ${minuteLabel}`;
 }
 
-function formatLocalTime() {
+function formatLocalTime(timezone) {
   const now = new Date();
-  return now.toLocaleString('en-US', {
+  const options = {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  };
+  if (timezone) {
+    options.timeZone = timezone;
+  }
+  return now.toLocaleString('en-US', options);
 }
 
 async function buildTemplateValues({ sender, accountRuntime, quotaInfo, accountId, accountSettings }) {
@@ -40,6 +44,7 @@ async function buildTemplateValues({ sender, accountRuntime, quotaInfo, accountI
   const liveTitle = targetInfo.title || '';
   const streamStartAt = targetInfo.streamStartAt || null;
   const quota = quotaInfo || getQuotaInfo();
+  const timezone = accountSettings?.timezone || '';
 
   let weather = null;
   try {
@@ -67,7 +72,7 @@ async function buildTemplateValues({ sender, accountRuntime, quotaInfo, accountI
     quota_percent: Number.isFinite(quota?.percentUsed)
       ? `${quota.percentUsed}%`
       : 'unknown',
-    time_local: formatLocalTime(),
+    time_local: formatLocalTime(timezone),
     weather_temp: Number.isFinite(weatherTemp)
       ? `${weatherTemp}${weatherUnits.temperature || ''}`
       : 'unknown',

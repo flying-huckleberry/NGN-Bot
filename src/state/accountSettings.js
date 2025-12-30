@@ -49,10 +49,12 @@ function defaultSettings() {
     weather: {
       latitude: '',
       longitude: '',
+      locationLabel: '',
       temperatureUnit: 'fahrenheit',
       windSpeedUnit: 'mph',
       precipitationUnit: 'inch',
     },
+    timezone: '',
   };
 }
 
@@ -108,10 +110,13 @@ function normalizeSettings(settings) {
   next.weather = {
     latitude: String(next.weather?.latitude ?? base.weather.latitude ?? '').trim(),
     longitude: String(next.weather?.longitude ?? base.weather.longitude ?? '').trim(),
+    locationLabel: String(next.weather?.locationLabel ?? base.weather.locationLabel ?? '').trim(),
     temperatureUnit: String(next.weather?.temperatureUnit ?? base.weather.temperatureUnit ?? '').trim(),
     windSpeedUnit: String(next.weather?.windSpeedUnit ?? base.weather.windSpeedUnit ?? '').trim(),
     precipitationUnit: String(next.weather?.precipitationUnit ?? base.weather.precipitationUnit ?? '').trim(),
   };
+
+  next.timezone = String(next.timezone ?? base.timezone ?? '').trim();
 
   return next;
 }
@@ -182,9 +187,11 @@ function buildAccountEnv(settings) {
     COINGECKO_TTL_MS: normalized.crypto.coingeckoTtlMs,
     WEATHER_LATITUDE: normalized.weather.latitude,
     WEATHER_LONGITUDE: normalized.weather.longitude,
+    WEATHER_LOCATION_LABEL: normalized.weather.locationLabel,
     WEATHER_TEMPERATURE_UNIT: normalized.weather.temperatureUnit,
     WEATHER_WIND_SPEED_UNIT: normalized.weather.windSpeedUnit,
     WEATHER_PRECIPITATION_UNIT: normalized.weather.precipitationUnit,
+    TIMEZONE: normalized.timezone,
   };
 }
 

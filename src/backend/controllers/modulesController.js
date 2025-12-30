@@ -1,6 +1,7 @@
 const { getAccountById } = require('../../state/accountsRepo');
 const { loadAccountSettings, updateAccountSettings } = require('../../state/accountSettings');
 const { respondModuleEdit, parseCsv, parseNumber, wantsJson } = require('./helpers');
+const { geocodeLocation } = require('../../services/weather');
 
 function createModulesController({ app, moduleNames }) {
   return {
@@ -69,6 +70,7 @@ function createModulesController({ app, moduleNames }) {
           // We store raw decimal coordinates and unit tokens for OpenMeteo.
           const latitudeRaw = String(req.body?.weatherLatitude || '').trim();
           const longitudeRaw = String(req.body?.weatherLongitude || '').trim();
+          const locationLabel = String(req.body?.weatherLocationLabel || '').trim();
           const temperatureUnit = String(req.body?.weatherTemperatureUnit || '').trim();
           const windSpeedUnit = String(req.body?.weatherWindSpeedUnit || '').trim();
           const precipitationUnit = String(req.body?.weatherPrecipitationUnit || '').trim();
@@ -89,6 +91,7 @@ function createModulesController({ app, moduleNames }) {
             weather: {
               latitude: latitudeRaw === '' ? '' : String(latitude),
               longitude: longitudeRaw === '' ? '' : String(longitude),
+              locationLabel,
               temperatureUnit,
               windSpeedUnit,
               precipitationUnit,
@@ -130,6 +133,27 @@ function createModulesController({ app, moduleNames }) {
           message: null,
           error: err.message || String(err),
         });
+      }
+    },
+
+    async geocodeWeather(req, res) {
+      const account = getAccountById(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: 'Account not found.' });
+      }
+      const moduleSlug = String(req.params.module || '').toLowerCase();
+      if (moduleSlug !== 'weather') {
+        return res.status(404).json({ error: 'Module not found.' });
+      }
+      const query = String(req.query?.q || '').trim();
+      if (!query) {
+        return res.json({ results: [] });
+      }
+      try {
+        const results = await geocodeLocation(query);
+        return res.json({ results });
+      } catch (err) {
+        return res.status(500).json({ error: err.message || String(err) });
       }
     },
   };

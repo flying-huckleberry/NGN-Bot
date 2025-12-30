@@ -6,6 +6,8 @@ const { ensureAccountDir, getAccountFilePath } = require('../state/accountPaths'
 
 const CACHE_FILE = 'weather_cache.json';
 const CACHE_TTL_MS = 30 * 60 * 1000;
+const GEOCODE_TTL_MS = 30 * 60 * 1000;
+const geocodeCache = new Map();
 
 function normalizeNumber(value) {
   if (value === null || value === undefined || String(value).trim() === '') {
@@ -80,6 +82,46 @@ function formatUnits(settings) {
   };
 }
 
+async function geocodeLocation(query) {
+  // Simple geocoding wrapper for city/state/country lookup.
+  const term = String(query || '').trim();
+  if (!term) return [];
+
+  const cached = geocodeCache.get(term.toLowerCase());
+  if (cached && Date.now() - cached.fetchedAt <= GEOCODE_TTL_MS) {
+    return cached.results || [];
+  }
+
+  const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
+  url.searchParams.set('name', term);
+  url.searchParams.set('count', '5');
+  url.searchParams.set('language', 'en');
+  url.searchParams.set('format', 'json');
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error(`Geocoding failed (${res.status})`);
+  }
+  const json = await res.json();
+  const results = Array.isArray(json?.results)
+    ? json.results.map((item) => ({
+      name: item.name || '',
+      admin1: item.admin1 || '',
+      country: item.country || '',
+      latitude: item.latitude,
+      longitude: item.longitude,
+      timezone: item.timezone || '',
+    }))
+    : [];
+
+  geocodeCache.set(term.toLowerCase(), {
+    fetchedAt: Date.now(),
+    results,
+  });
+
+  return results;
+}
+
 async function fetchWeather({ latitude, longitude, settings }) {
   // OpenMeteo call for "current" only. Units are configurable per account.
   const url = 'https://api.open-meteo.com/v1/forecast';
@@ -151,4 +193,5 @@ async function getWeatherSnapshot({ accountId, settings, disabledModules }) {
 module.exports = {
   getWeatherSnapshot,
   formatDirection,
+  geocodeLocation,
 };
