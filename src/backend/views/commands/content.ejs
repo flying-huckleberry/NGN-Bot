@@ -75,11 +75,20 @@
 
   <div style="margin-top:16px;">
     <h3 style="margin-top:0; color:#cbd5e1;">Existing Commands</h3>
+    <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:8px;">
+      Total: <strong style="color:#e5e7eb;"><%= safeCommands.length %></strong>
+      <% if (typeof maxEntries !== 'undefined') { %>
+        / <strong style="color:#e5e7eb;"><%= maxEntries %></strong>
+      <% } %>
+    </div>
     <% if (!safeCommands.length) { %>
       <p style="color:#94a3b8;">No custom commands yet.</p>
     <% } %>
-    <% safeCommands.forEach((cmd) => { %>
-      <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:12px;">
+    <% safeCommands.forEach((cmd, index) => { %>
+      <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:12px; position:relative;">
+        <div style="position:absolute; top:8px; left:8px; font-size:0.75rem; color:#94a3b8;">
+          <%= index + 1 %>
+        </div>
         <form action="/accounts/<%= account.id %>/commands/save" method="post" style="display:grid; gap:12px;">
           <input type="hidden" name="id" value="<%= cmd.id %>" />
           <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
@@ -211,7 +220,7 @@
       }
     });
 
-    main.addEventListener('change', (event) => {
+    main.addEventListener('change', async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement)) return;
       if (!target.matches('input[data-command-toggle]')) return;
@@ -221,6 +230,37 @@
       const on = target.checked;
       if (track) track.style.background = on ? '#22c55e' : '#1f2937';
       if (thumb) thumb.style.left = on ? '24px' : '2px';
+
+      const form = target.closest('form');
+      const idInput = form?.querySelector('input[name="id"]');
+      if (!form || !idInput || !idInput.value) return;
+
+      const action = String(form.action || '').replace(/\/save(\?.*)?$/, '/toggle');
+      const body = new URLSearchParams();
+      body.append('id', idInput.value);
+      body.append('enabled', String(on));
+
+      try {
+        target.disabled = true;
+        const res = await fetch(action, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          },
+          body,
+        });
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        if (data?.html) renderHtml(data.html);
+      } catch (err) {
+        target.checked = !on;
+        if (track) track.style.background = !on ? '#22c55e' : '#1f2937';
+        if (thumb) thumb.style.left = !on ? '24px' : '2px';
+        window.alert(err.message || 'Request failed');
+      } finally {
+        target.disabled = false;
+      }
     });
 
     dismissFlash();

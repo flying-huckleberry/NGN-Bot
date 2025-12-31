@@ -7,6 +7,7 @@ const {
 } = require('../../state/customCommands');
 const { respondCommands } = require('./helpers');
 const { moderateText, DISALLOWED_MESSAGE, SELF_HARM_MESSAGE } = require('../../services/openai');
+const { CUSTOM_COMMANDS_MAX } = require('../../config/env');
 
 function normalizeCommandKey(raw) {
   const trimmed = String(raw || '').trim();
@@ -29,6 +30,7 @@ function createCommandsController({ app, reservedCommands }) {
         active: 'accounts',
         account,
         commands,
+        maxEntries: CUSTOM_COMMANDS_MAX,
         message: req.query?.message || null,
         error: req.query?.error || null,
       });
@@ -67,6 +69,7 @@ function createCommandsController({ app, reservedCommands }) {
           active: 'accounts',
           account,
           commands,
+          maxEntries: CUSTOM_COMMANDS_MAX,
           message: 'Custom command saved.',
           error: null,
         });
@@ -77,6 +80,7 @@ function createCommandsController({ app, reservedCommands }) {
           active: 'accounts',
           account,
           commands,
+          maxEntries: CUSTOM_COMMANDS_MAX,
           message: null,
           error: err.message || String(err),
         });
@@ -97,6 +101,7 @@ function createCommandsController({ app, reservedCommands }) {
           active: 'accounts',
           account,
           commands,
+          maxEntries: CUSTOM_COMMANDS_MAX,
           message: 'Custom command deleted.',
           error: null,
         });
@@ -107,6 +112,7 @@ function createCommandsController({ app, reservedCommands }) {
           active: 'accounts',
           account,
           commands,
+          maxEntries: CUSTOM_COMMANDS_MAX,
           message: null,
           error: err.message || String(err),
         });
@@ -129,6 +135,7 @@ function createCommandsController({ app, reservedCommands }) {
           active: 'accounts',
           account,
           commands,
+          maxEntries: CUSTOM_COMMANDS_MAX,
           message: 'Custom command updated.',
           error: null,
         });
@@ -139,6 +146,7 @@ function createCommandsController({ app, reservedCommands }) {
           active: 'accounts',
           account,
           commands,
+          maxEntries: CUSTOM_COMMANDS_MAX,
           message: null,
           error: err.message || String(err),
         });
