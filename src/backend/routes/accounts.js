@@ -8,6 +8,7 @@ const { createAutoAnnouncementsController } = require('../controllers/autoAnnoun
 
 function registerAccountRoutes(app, {
   pollOnce,
+  startPolling,
   getDiscordStatus,
   modules = {},
   refreshAutoAnnouncements,
@@ -24,6 +25,7 @@ function registerAccountRoutes(app, {
     moduleNames,
     getDiscordStatus,
     pollOnce,
+    startPolling,
     autoAnnouncements,
   });
   const modulesController = createModulesController({ app, moduleNames });

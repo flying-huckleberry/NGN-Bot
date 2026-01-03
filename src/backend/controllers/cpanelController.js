@@ -26,6 +26,7 @@ function createCpanelController({
   moduleNames,
   getDiscordStatus,
   pollOnce,
+  startPolling,
   autoAnnouncements,
 }) {
   return {
@@ -193,30 +194,6 @@ function createCpanelController({
         }));
       }
 
-      const shouldReuseRuntime =
-        Boolean(runtime.liveChatId) &&
-        runtime.primed === true &&
-        Boolean(runtime.youtubeChannelId) &&
-        runtime.youtubeChannelId === account.youtube?.channelId;
-
-      if (shouldReuseRuntime) {
-        updateAccountSettings(account.id, { youtube: { enabled: true } });
-        if (autoAnnouncements?.refresh) {
-          autoAnnouncements.refresh(account.id);
-        }
-        return respondCpanel(app, req, res, buildCpanelViewModel({
-          account,
-          settings: loadAccountSettings(account.id),
-          runtime,
-          modules: moduleNames,
-          customCommands: loadAccountCommands(account.id),
-          autoAnnouncements: loadAccountAnnouncements(account.id),
-          quota,
-          message: 'YouTube transport enabled.',
-          discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
-        }));
-      }
-
       const titleMatch = String(req.body?.youtubeTitleMatch || '').trim();
       try {
         const { liveChatId, method, targetInfo, estimatedUnits, channelId } =
@@ -241,6 +218,9 @@ function createCpanelController({
         updateAccountSettings(account.id, { youtube: { enabled: true } });
         if (autoAnnouncements?.refresh) {
           autoAnnouncements.refresh(account.id);
+        }
+        if (typeof startPolling === 'function') {
+          startPolling(account.id, liveChatId);
         }
 
         const updatedQuota = getQuotaInfo();
@@ -338,6 +318,9 @@ function createCpanelController({
         }
         if (autoAnnouncements?.refresh) {
           autoAnnouncements.refresh(account.id);
+        }
+        if (typeof startPolling === 'function') {
+          startPolling(account.id, liveChatId);
         }
 
         const nextSettings = loadAccountSettings(account.id);

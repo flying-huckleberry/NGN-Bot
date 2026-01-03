@@ -158,6 +158,14 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
     registerAccountRoutes(app, {
       pollOnce: (accountId, liveChatId) =>
         pollOnceWithDispatch(accountId, liveChatId, dispatch, { maxPages: MANUAL_POLL_MAX_PAGES }),
+      startPolling: (accountId, liveChatId) => {
+        if (!accountId || !liveChatId) return;
+        if (MODE === 'dev') {
+          startDevAutoPoll(accountId, liveChatId);
+        } else {
+          pollLoop(accountId, liveChatId);
+        }
+      },
       getDiscordStatus,
       modules: registry.modules,
       reservedCommands: new Set(Array.from(registry.flat.keys()).map((key) => String(key).toLowerCase())),
@@ -267,6 +275,9 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
               maxResults: 200,
             });
           } else if (isLiveChatStale(err)) {
+            logger.warn(`Poll detected stale live chat. Disabling transport for ${accountId}.`, {
+              reason: err?.errors?.[0]?.reason || err?.message,
+            });
             resetYoutubeTransport(accountId, account);
             return {
               ok: false,
@@ -374,6 +385,9 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
         setTimeout(() => pollLoop(accountId, liveChatId), delay);
       } catch (err) {
         if (isLiveChatStale(err)) {
+          logger.warn(`Poll loop detected stale live chat. Disabling transport for ${accountId}.`, {
+            reason: err?.errors?.[0]?.reason || err?.message,
+          });
           resetYoutubeTransport(accountId, account);
           return;
         }
@@ -401,13 +415,6 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       }
 
       const runtime = loadAccountRuntime(account.id);
-      if (!autoPoll && runtime.liveChatId && runtime.primed) {
-        logger.info(
-          `${modeLabel}: Youtube - ${accountLabel} reusing cached liveChatId (${runtime.liveChatId})`
-        );
-        return;
-      }
-
       const { liveChatId, method, channelId, targetInfo } = await resolveTargetLiveChatId(
         {},
         {
