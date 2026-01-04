@@ -13,6 +13,7 @@ const {
 } = require('../../state/accountRuntime');
 const { loadAccountCommands } = require('../../state/customCommands');
 const { loadAccountAnnouncements } = require('../../state/autoAnnouncements');
+const { loadAccountCountCommands } = require('../../state/countCommands');
 const { getQuotaInfo } = require('../../state/quota');
 const { resolveTargetLiveChatId } = require('../../services/liveChatTarget');
 const { primeChat } = require('../../services/youtube');
@@ -39,6 +40,7 @@ function createCpanelController({
       const settings = loadAccountSettings(account.id);
       const quota = getQuotaInfo();
       const customCommands = loadAccountCommands(account.id);
+      const countCommands = loadAccountCountCommands(account.id);
       const autoAnnouncementsList = loadAccountAnnouncements(account.id);
       const data = buildCpanelViewModel({
         account,
@@ -46,6 +48,7 @@ function createCpanelController({
         runtime,
         modules: moduleNames,
         customCommands,
+        countCommands,
         autoAnnouncements: autoAnnouncementsList,
         quota,
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,

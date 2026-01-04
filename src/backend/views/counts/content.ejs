@@ -1,0 +1,263 @@
+<% const pageMessage = typeof message === 'undefined' ? null : message; %>
+<% const pageError = typeof error === 'undefined' ? null : error; %>
+<% const safeCommands = Array.isArray(commands) ? commands : []; %>
+
+<div style="position:relative;">
+  <%- include('../partials/flash', { message: pageMessage, error: pageError }) %>
+  <h2>Count Commands</h2>
+  <p style="color:#9ca3af;">Account: <strong style="color:#e5e7eb;"><%= account.name %></strong> <span style="margin-left:8px; color:#64748b;">(<%= account.id %>)</span></p>
+  <p><a href="/accounts/<%= account.id %>/cpanel" style="color:#93c5fd; text-decoration:none;">&larr; Back to control panel</a></p>
+
+  <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Add Count Command</h3>
+    <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">
+      Count commands are sent to YouTube only.
+    </div>
+    <form action="/accounts/<%= account.id %>/counts/save" method="post" style="display:grid; gap:12px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Command Name
+          <input name="name" type="text" placeholder="sneeze" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Response
+          <input name="response" type="text" placeholder="Streamer has sneezed {count} times!" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+          Enabled
+          <span style="position:relative; width:46px; height:24px; display:inline-block;">
+            <input
+              name="enabled"
+              type="checkbox"
+              value="true"
+              checked
+              data-count-toggle
+              style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+            />
+            <span data-toggle-track style="
+              position:absolute;
+              inset:0;
+              background:#22c55e;
+              border:1px solid #334155;
+              border-radius:999px;
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+            <span data-toggle-thumb style="
+              position:absolute;
+              top:2px;
+              left:24px;
+              width:20px;
+              height:20px;
+              background:#0b1224;
+              border:1px solid #475569;
+              border-radius:999px;
+              box-shadow:0 1px 4px rgba(0,0,0,0.4);
+              transition:all 0.2s ease;
+              pointer-events:none;
+            "></span>
+          </span>
+        </label>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Create Count Command</button>
+        <span style="font-size:0.8rem; color:#94a3b8;">Max <%= maxEntries %> total.</span>
+      </div>
+      <div style="font-size:0.85rem; color:#94a3b8;">
+        Variables: <code>{count}</code>
+      </div>
+    </form>
+  </div>
+
+  <div style="margin-top:16px;">
+    <h3 style="margin-top:0; color:#cbd5e1;">Existing Count Commands</h3>
+    <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:8px;">
+      Total: <strong style="color:#e5e7eb;"><%= safeCommands.length %></strong>
+      <% if (typeof maxEntries !== 'undefined') { %>
+        / <strong style="color:#e5e7eb;"><%= maxEntries %></strong>
+      <% } %>
+    </div>
+    <% if (!safeCommands.length) { %>
+      <p style="color:#94a3b8;">No count commands yet.</p>
+    <% } %>
+    <% safeCommands.forEach((cmd, index) => { %>
+      <div style="background:#0b1224; padding:16px; border-radius:12px; border:1px solid #1f2937; margin-bottom:12px; position:relative;">
+        <div style="position:absolute; top:8px; left:8px; font-size:0.75rem; color:#94a3b8;">
+          <%= index + 1 %>
+        </div>
+        <form action="/accounts/<%= account.id %>/counts/save" method="post" style="display:grid; gap:12px;">
+          <input type="hidden" name="id" value="<%= cmd.id %>" />
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:160px; flex:0.6 1 160px;">
+              Command Name
+              <input name="name" type="text" value="<%= cmd.name %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:260px; flex:2 1 260px;">
+              Response
+              <input name="response" type="text" value="<%= cmd.response %>" style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb;" />
+            </label>
+            <div style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1; min-width:120px;">
+              Count
+              <div style="padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e5e7eb; text-align:center;">
+                <%= Number.isFinite(cmd.count) ? cmd.count : 0 %>
+              </div>
+            </div>
+            <label style="display:flex; flex-direction:column; gap:6px; color:#cbd5e1;">
+              Enabled
+              <span style="position:relative; width:46px; height:24px; display:inline-block;">
+                <input
+                  name="enabled"
+                  type="checkbox"
+                  value="true"
+                  <%= cmd.enabled ? 'checked' : '' %>
+                  data-count-toggle
+                  style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
+                />
+                <span data-toggle-track style="
+                  position:absolute;
+                  inset:0;
+                  background:<%= cmd.enabled ? '#22c55e' : '#1f2937' %>;
+                  border:1px solid #334155;
+                  border-radius:999px;
+                  transition:all 0.2s ease;
+                  pointer-events:none;
+                "></span>
+                <span data-toggle-thumb style="
+                  position:absolute;
+                  top:2px;
+                  left:<%= cmd.enabled ? '24px' : '2px' %>;
+                  width:20px;
+                  height:20px;
+                  background:#0b1224;
+                  border:1px solid #475569;
+                  border-radius:999px;
+                  box-shadow:0 1px 4px rgba(0,0,0,0.4);
+                  transition:all 0.2s ease;
+                  pointer-events:none;
+                "></span>
+              </span>
+            </label>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-left:auto; padding-bottom:2px;">
+              <button type="submit" style="background:#374D81; color:#fff; border:1px solid #4663A5; padding:8px 12px; border-radius:8px; cursor:pointer;">Save</button>
+              <button type="submit" formaction="/accounts/<%= account.id %>/counts/reset" formmethod="post" data-confirm="Reset count to 0?" style="background:#0f172a; color:#e5e7eb; border:1px solid #334155; padding:8px 12px; border-radius:8px; cursor:pointer;">Reset Count</button>
+              <button type="submit" formaction="/accounts/<%= account.id %>/counts/delete" formmethod="post" data-confirm="Delete this count command?" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; padding:8px 12px; border-radius:8px; cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const main = document.querySelector('main.main');
+    if (!main || main.dataset.ajaxBound === 'true') return;
+    main.dataset.ajaxBound = 'true';
+
+    const dismissFlash = () => {
+      const flash = document.getElementById('cpanel-flash');
+      if (flash) {
+        setTimeout(() => {
+          flash.style.transition = 'opacity 0.3s ease';
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 300);
+        }, 5000);
+      }
+      const flashError = document.getElementById('cpanel-flash-error');
+      if (flashError) {
+        setTimeout(() => {
+          flashError.style.transition = 'opacity 0.3s ease';
+          flashError.style.opacity = '0';
+          setTimeout(() => flashError.remove(), 300);
+        }, 5000);
+      }
+    };
+
+    const renderHtml = (html) => {
+      if (!main) return;
+      main.innerHTML = html;
+      dismissFlash();
+    };
+
+    const submitForm = async (form, submitter) => {
+      const formData = new FormData(form);
+      const body = new URLSearchParams();
+      formData.forEach((value, key) => {
+        body.append(key, value);
+      });
+
+      const action = submitter?.getAttribute('formaction') || form.action;
+      const res = await fetch(action, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        },
+        body,
+      });
+
+      if (!res.ok) throw new Error('Request failed: ' + res.status);
+      const data = await res.json();
+      if (data?.html) renderHtml(data.html);
+    };
+
+    main.addEventListener('submit', async (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      event.preventDefault();
+      const confirmMsg = event.submitter?.getAttribute('data-confirm') || form.getAttribute('data-confirm');
+      if (confirmMsg && !window.confirm(confirmMsg)) return;
+      try {
+        await submitForm(form, event.submitter);
+      } catch (err) {
+        window.alert(err.message || 'Request failed');
+      }
+    });
+
+    main.addEventListener('change', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.matches('input[data-count-toggle]')) return;
+      const wrapper = target.parentElement;
+      const track = wrapper?.querySelector('[data-toggle-track]');
+      const thumb = wrapper?.querySelector('[data-toggle-thumb]');
+      const on = target.checked;
+      if (track) track.style.background = on ? '#22c55e' : '#1f2937';
+      if (thumb) thumb.style.left = on ? '24px' : '2px';
+
+      const form = target.closest('form');
+      const idInput = form?.querySelector('input[name="id"]');
+      if (!form || !idInput || !idInput.value) return;
+
+      const action = String(form.action || '').replace(/\/save(\?.*)?$/, '/toggle');
+      const body = new URLSearchParams();
+      body.append('id', idInput.value);
+      body.append('enabled', String(on));
+
+      try {
+        target.disabled = true;
+        const res = await fetch(action, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          },
+          body,
+        });
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        if (data?.html) renderHtml(data.html);
+      } catch (err) {
+        target.checked = !on;
+        if (track) track.style.background = !on ? '#22c55e' : '#1f2937';
+        if (thumb) thumb.style.left = !on ? '24px' : '2px';
+        window.alert(err.message || 'Request failed');
+      } finally {
+        target.disabled = false;
+      }
+    });
+
+    dismissFlash();
+  })();
+</script>

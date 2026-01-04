@@ -5,6 +5,7 @@ const { createCpanelController } = require('../controllers/cpanelController');
 const { createModulesController } = require('../controllers/modulesController');
 const { createCommandsController } = require('../controllers/commandsController');
 const { createAutoAnnouncementsController } = require('../controllers/autoAnnouncementsController');
+const { createCountCommandsController } = require('../controllers/countCommandsController');
 
 function registerAccountRoutes(app, {
   pollOnce,
@@ -34,6 +35,7 @@ function registerAccountRoutes(app, {
     app,
     refreshAutoAnnouncements,
   });
+  const countCommandsController = createCountCommandsController({ app, reservedCommands });
 
   app.get('/', accountsController.redirectRoot);
   app.get('/accounts', accountsController.listAccounts);
@@ -51,6 +53,12 @@ function registerAccountRoutes(app, {
   app.post('/accounts/:id/auto-announcements/save', autoAnnouncementsController.saveAnnouncement);
   app.post('/accounts/:id/auto-announcements/delete', autoAnnouncementsController.deleteAnnouncement);
   app.post('/accounts/:id/auto-announcements/toggle', autoAnnouncementsController.toggleAnnouncement);
+
+  app.get('/accounts/:id/counts', countCommandsController.listCountCommands);
+  app.post('/accounts/:id/counts/save', countCommandsController.saveCountCommand);
+  app.post('/accounts/:id/counts/delete', countCommandsController.deleteCountCommand);
+  app.post('/accounts/:id/counts/toggle', countCommandsController.toggleCountCommand);
+  app.post('/accounts/:id/counts/reset', countCommandsController.resetCountCommand);
 
   app.get('/accounts/:id/modules/:module', modulesController.getModule);
   app.post('/accounts/:id/modules/:module', modulesController.updateModule);

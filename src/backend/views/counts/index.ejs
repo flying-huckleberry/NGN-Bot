@@ -1,0 +1,5 @@
+<%- include('../partials/layout-start', { title, active: 'accounts', mode }) %>
+<main class="main">
+  <%- include('content', { account, commands, message, error, maxEntries }) %>
+</main>
+<%- include('../partials/layout-end') %>

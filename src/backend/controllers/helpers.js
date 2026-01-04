@@ -1,5 +1,6 @@
 const { accountRuntimeExists } = require('../../state/accountRuntime');
 const { loadAccountCommands } = require('../../state/customCommands');
+const { loadAccountCountCommands } = require('../../state/countCommands');
 
 function wantsJson(req) {
   return req.headers.accept?.includes('application/json');
@@ -27,6 +28,7 @@ function buildCpanelViewModel({
   runtime,
   modules,
   customCommands,
+  countCommands,
   autoAnnouncements,
   quota,
   message,
@@ -49,6 +51,9 @@ function buildCpanelViewModel({
   const safeCommands = Array.isArray(customCommands)
     ? customCommands
     : (safeAccount.id ? loadAccountCommands(safeAccount.id) : []);
+  const safeCountCommands = Array.isArray(countCommands)
+    ? countCommands
+    : (safeAccount.id ? loadAccountCountCommands(safeAccount.id) : []);
   const safeAutoAnnouncements = Array.isArray(autoAnnouncements)
     ? autoAnnouncements
     : [];
@@ -62,6 +67,7 @@ function buildCpanelViewModel({
     runtime: safeRuntime,
     modules: safeModules,
     customCommands: safeCommands,
+    countCommands: safeCountCommands,
     autoAnnouncements: safeAutoAnnouncements,
     quota,
     message,
@@ -129,6 +135,15 @@ async function respondAutoAnnouncements(app, req, res, data) {
   return res.render('auto-announcements/index', data);
 }
 
+// Count commands view: used for CRUD responses.
+async function respondCountCommands(app, req, res, data) {
+  if (wantsJson(req)) {
+    const html = await renderEjs(app, 'counts/content', data);
+    return res.json({ html });
+  }
+  return res.render('counts/index', data);
+}
+
 module.exports = {
   wantsJson,
   parseCsv,
@@ -139,4 +154,5 @@ module.exports = {
   respondModuleEdit,
   respondCommands,
   respondAutoAnnouncements,
+  respondCountCommands,
 };

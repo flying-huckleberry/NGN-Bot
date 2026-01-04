@@ -5,6 +5,7 @@ const {
   deleteCommand,
   toggleCommand,
 } = require('../../state/customCommands');
+const { loadAccountCountCommands } = require('../../state/countCommands');
 const { respondCommands } = require('./helpers');
 const { moderateText, DISALLOWED_MESSAGE, SELF_HARM_MESSAGE } = require('../../services/openai');
 const { CUSTOM_COMMANDS_MAX } = require('../../config/env');
@@ -54,6 +55,13 @@ function createCommandsController({ app, reservedCommands }) {
         const key = normalizeCommandKey(name);
         if (reserved && key && reserved.has(key)) {
           throw new Error(`"${name}" is reserved by a built-in command.`);
+        }
+        const countCommands = loadAccountCountCommands(account.id);
+        const countCollision = countCommands.find(
+          (cmd) => normalizeCommandKey(cmd?.name) === key
+        );
+        if (countCollision) {
+          throw new Error(`"${name}" is already used by a count command.`);
         }
         const moderation = await moderateText(response);
         if (moderation === 'self_harm') {

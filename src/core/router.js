@@ -2,7 +2,9 @@
 const { COMMAND_PREFIX } = require('../config/env');
 const { parseText } = require('../utils/parse');
 const { loadAccountCommands } = require('../state/customCommands');
+const { loadAccountCountCommands, incrementCount } = require('../state/countCommands');
 const { buildTemplateValues, renderTemplate } = require('../utils/templateVars');
+const { isAdmin } = require('../utils/permissions');
 
 // Returns dispatcher: (msg) => Promise<void>
 function createRouter({ registry, buildContext, isModuleDisabled }) {
@@ -127,6 +129,39 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
           await ctx.reply(rendered);
           return;
         }
+      }
+    }
+
+    // 5) account-scoped count commands (flat only, YouTube only)
+    if (modName && !cmdName) {
+      const commands = loadAccountCountCommands(accountId || '');
+      const match = commands.find(
+        (cmd) => String(cmd?.name || '').toLowerCase() === modName.toLowerCase()
+      );
+      if (match && match.enabled !== false) {
+        if (transport?.type !== 'youtube') return;
+
+        const ctx = await buildContext({
+          msg,
+          liveChatId,
+          args,
+          transport,
+          platformMeta,
+          accountId,
+          accountSettings,
+          account,
+          accountRuntime,
+        });
+
+        if (!isAdmin(ctx.msg, ctx)) {
+          return;
+        }
+
+        const nextCount = incrementCount(accountId, match.id);
+        const response = String(match.response || '');
+        const rendered = response.replace(/\{count\}/gi, String(nextCount));
+        await ctx.reply(rendered);
+        return;
       }
     }
 

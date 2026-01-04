@@ -302,6 +302,17 @@
     </div>
   </div>
 
+  <div data-counts-card style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <h3 style="margin:0; color:#cbd5e1;">
+        <a href="/accounts/<%= account.id %>/counts" onmouseover="this.style.textDecoration='underline';" onmouseout="this.style.textDecoration='none';" style="color:#cbd5e1; text-decoration:none;">Count Commands &rarr;</a>
+      </h3>
+      <span style="font-size:0.85rem; color:#94a3b8;">
+        <%= (countCommands && countCommands.length) ? `${countCommands.length} total` : 'None configured' %>
+      </span>
+    </div>
+  </div>
+
   <div data-commands-accordion style="background:#0b1224; padding:12px; border-radius:10px; border:1px solid #1f2937; margin-bottom:16px; transition:background 0.2s ease;">
     <div data-commands-header style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
       <h3 style="margin:0; color:#cbd5e1;">
