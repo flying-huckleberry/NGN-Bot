@@ -51,17 +51,20 @@ function createCountCommandsController({ app, reservedCommands }) {
       const id = String(req.body?.id || '').trim();
 
       try {
+        // Normalize input so collisions are case-insensitive and prefix-agnostic.
         const key = normalizeCommandKey(name);
         if (reserved && key && reserved.has(key)) {
           throw new Error(`"${name}" is reserved by a built-in command.`);
         }
         const customCommands = loadAccountCommands(account.id);
+        // Count commands may not reuse existing custom command names.
         const customCollision = customCommands.find(
           (cmd) => normalizeCommandKey(cmd?.name) === key
         );
         if (customCollision) {
           throw new Error(`"${name}" is already used by a custom command.`);
         }
+        // Moderate on save/edit; runtime uses the stored response as-is.
         const moderation = await moderateText(response);
         if (moderation === 'self_harm') {
           throw new Error(SELF_HARM_MESSAGE);

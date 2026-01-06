@@ -45,6 +45,7 @@ function buildCountCommand(input) {
     name,
     response,
     enabled: input?.enabled !== false,
+    // Persist the rolling count per command; only the UI can reset it.
     count: normalizeCount(input?.count),
     id: parseId(input?.id) || null,
     createdAt: input?.createdAt || new Date().toISOString(),
@@ -94,6 +95,7 @@ function upsertCountCommand(accountId, payload) {
 
   if (existingIdx >= 0) {
     const existing = commands[existingIdx];
+    // Keep count stable on edits; only reset via explicit reset action.
     const collision = commands.find(
       (cmd, idx) =>
         idx !== existingIdx &&
@@ -116,6 +118,7 @@ function upsertCountCommand(accountId, payload) {
     if (requestedId) {
       throw new Error('Command not found.');
     }
+    // New commands always start at 0.
     const collision = commands.find(
       (cmd) => normalizeName(cmd.name).toLowerCase() === normalizeName(next.name).toLowerCase()
     );

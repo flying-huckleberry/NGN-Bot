@@ -5,11 +5,15 @@ A modular Node.js bot that connects to both YouTube Live Chat and Discord. It pr
 ## Features
 
 - PROD: auto-connects per account and continuously polls chat for each configured YouTube channel.
-- DEV: manual connect/poll per account via the control panel to conserve YouTube quota.
+- DEV: manual connect/poll per account via the control panel to conserve YouTube quota, plus optional auto-poll.
 - Playground: offline fake chat for developing commands without API calls.
 - Discord transport: discord.js client shares the same command registry and scoped state.
 - Crypto paper-trading mini-game with CoinGecko prices and per-scope portfolios.
 - Semantic word-guess game using OpenAI embeddings.
+- Custom commands (YouTube/Discord) with template variables and moderation on save/edit.
+- Auto announcements (YouTube only) with per-message intervals and template variables.
+- Count commands (YouTube only) for admin/mod-only incremental counters.
+- Weather module (OpenMeteo) with cached values and optional commands/variables.
 - Multi-account control panel with per-account settings (prefix, race config, disabled modules, Discord channel rules, etc).
 - Web UI: Accounts picker, account control panels, module settings pages, and Playground.
 - OAuth2 for YouTube; Discord token-based auth.
@@ -57,10 +61,28 @@ TARGET_LIVESTREAM_URL=https://www.youtube.com/watch?v=XXXX
 
 COMMAND_PREFIX=!
 YT_DAILY_QUOTA=10000
-POLL_ESTIMATE_UNITS=5
 
 # Discord transport (optional)
 DISCORD_BOT_TOKEN=your-discord-bot-token
+
+# Auto announcements
+AUTO_ANNOUNCEMENTS_MAX=5
+
+# Custom commands
+CUSTOM_COMMANDS_MAX=15
+
+# Count commands
+COUNT_COMMANDS_MAX=10
+
+# Discord message size
+DISCORD_MAX_CHARS=1990
+
+# Dev polling
+DEV_AUTOPOLL_INTERVAL_MINUTES=15
+MANUAL_POLL_MAX_PAGES=100
+
+# Optional CSV to disable modules globally
+DISABLED_MODULES=weather
 
 # Per-account settings (prefix, disabled modules, race config, crypto settings,
 # Discord allowed channels, etc.) are managed in the control panel.
@@ -84,6 +106,18 @@ Open `http://localhost:4000`. No external API calls are made; useful for develop
 
 ### Discord transport
 If `DISCORD_BOT_TOKEN` is set, the Discord client starts alongside YouTube. Messages starting with the per-account command prefix use the same router and replies stay in the originating channel. Discord guild + channel access, and racing channel restrictions, are configured per account in the control panel.
+
+### Custom commands
+Create per-account commands in the control panel. Responses support template variables and are moderated on save/edit. YouTube commands obey `CHAT_MAX_CHARS`, Discord-only commands obey `DISCORD_MAX_CHARS`.
+
+### Auto announcements
+YouTube-only scheduled messages with per-command intervals. Responses support the same template variables as custom commands.
+
+### Count commands
+YouTube-only counters that increment when mods/owner run the command. Each counter has a custom response containing `{count}`. Resets are only in the web UI.
+
+### Weather module
+Optional per-account weather settings (OpenMeteo) cached for 30 minutes. Provides template variables like `{weather_temp}` and optional commands like `!weather`, `!temp`, `!wind`, `!precip`, `!day`.
 
 ### Crypto paper trading
 Enabled by default. Users start with account-scoped starting cash and can trade allowlisted coins from the account settings. Prices come from CoinGecko `/simple/price`, cached per account TTL (set 0 for no cache). Commands: `!buy <symbol> <usd>`, `!sell <symbol> <usd>`, `!wallet`, `!coin <symbol>`, `!leaders`. Replies tag the user and respect the chat character limit.
@@ -114,7 +148,10 @@ Legacy `dev_state.json` is migrated to a default account on startup.
 
 - `/accounts`: account picker + create new accounts.
 - `/accounts/:id/cpanel`: account control panel (connect/poll, transport toggles, settings, module toggles).
-- `/accounts/:id/modules/:module`: module-specific settings (ex: racing, crypto).
+- `/accounts/:id/modules/:module`: module-specific settings (ex: racing, crypto, weather).
+- `/accounts/:id/commands`: custom commands CRUD.
+- `/accounts/:id/auto-announcements`: auto announcements CRUD.
+- `/accounts/:id/counts`: count commands CRUD.
 - `/sandbox`: fake chat playground to send commands and view replies without API calls.
 - `/auth`: starts YouTube OAuth2.
 - `/oauth2callback`: stores OAuth tokens.
@@ -130,6 +167,7 @@ YouTube Data API v3 daily limits are estimated in `state/quota.js`:
 | Resolve channel       | ~101         |
 | Prime chat            | ~5           |
 | Poll once             | ~5           |
+| Send message          | ~50          |
 
 Resets automatically at midnight Pacific and is shown in each control panel.
 
@@ -168,6 +206,7 @@ src/
     discord.js           # Discord transport bootstrap
     openai.js            # !ask logic
     liveChatTarget.js    # Resolves liveChatId from overrides/account config
+    weather.js           # OpenMeteo fetch/cache
     league.js            # League API commands
     racing/              # Racing game logic, state, parts, venues
     crypto/              # CoinGecko-backed paper trading state/prices
@@ -179,6 +218,7 @@ src/
   state/
     accounts.json        # Account registry (gitignored)
     accounts/            # Per-account runtime/settings/secrets (gitignored)
+    countCommands.js     # Count command storage
     quota.js             # Quota accounting + reset
     scopedStore.js       # Scoped JSON storage helper
   utils/

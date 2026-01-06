@@ -141,6 +141,7 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
       if (match && match.enabled !== false) {
         if (transport?.type !== 'youtube') return;
 
+        // Enforce mod/owner gate (same behavior as racereset).
         const ctx = await buildContext({
           msg,
           liveChatId,
@@ -157,6 +158,7 @@ function createRouter({ registry, buildContext, isModuleDisabled }) {
           return;
         }
 
+        // Increment count and substitute {count} in the response template.
         const nextCount = incrementCount(accountId, match.id);
         const response = String(match.response || '');
         const rendered = response.replace(/\{count\}/gi, String(nextCount));
