@@ -261,6 +261,7 @@ async function resolveRace(ctx) {
   const scopeKey = getScopeKey(ctx);
   const race = getRace(scopeKey);
   if (!race) return;
+  const forcedWinnerId = race.forcedWinnerId || null;
   const now = Date.now();
   const playerIds = race.players || [];
 
@@ -292,7 +293,6 @@ async function resolveRace(ctx) {
   );
 
   // If an owner invoked !ihaveagun, force them to win.
-  const forcedWinnerId = getForcedWinnerId(scopeKey);
   ({ ranked, casualties } = applyForcedWinner(ranked, casualties, forcedWinnerId));
 
   // Optional: single casualties message before results
