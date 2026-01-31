@@ -23,3 +23,6 @@ state/accounts/
 # Codex
 CODING_AGENTS.md
 .codexignore
+
+# VSCode
+*-workspace
