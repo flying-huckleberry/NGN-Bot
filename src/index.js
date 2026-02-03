@@ -379,8 +379,9 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
 
         runtime.nextPageToken = res.data.nextPageToken || runtime.nextPageToken;
         saveAccountRuntime(accountId, runtime);
+        // NOTE: Force fallback interval to limit quota usage. Keep API interval for later.
+        // const apiInterval = res.data.pollingIntervalMillis;
         const delay =
-          res.data.pollingIntervalMillis ??
           (Number.isFinite(+POLLING_FALLBACK_MS) ? +POLLING_FALLBACK_MS : 2000);
         setTimeout(() => pollLoop(accountId, liveChatId), delay);
       } catch (err) {
