@@ -345,6 +345,10 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
       if (!account) return;
       const runtime = loadAccountRuntime(accountId);
       const settings = loadAccountSettings(accountId);
+      if (settings.youtube?.enabled === false || !runtime.liveChatId) {
+        logger.info(`Poll loop stopped: YouTube transport disabled for ${accountId}.`);
+        return;
+      }
 
       try {
         const res = await listLiveChatMessages({
