@@ -246,6 +246,20 @@ async function askYoutube(prompt, maxChars = MAX_CHARS) {
     // normalize whitespace → avoid line breaks / double spaces
     reply = reply.replace(/\s+/g, ' ').trim();
 
+    const replyAction = await getModerationAction(reply);
+    if (replyAction === 'self_harm') {
+      logger.info('ai.ask blocked: reply moderation self_harm');
+      return SELF_HARM_MESSAGE;
+    }
+    if (replyAction === 'block') {
+      logger.info('ai.ask blocked: reply moderation');
+      return DISALLOWED_MESSAGE;
+    }
+    if (isBlocklisted(reply)) {
+      logger.info('ai.ask blocked: reply blocklist');
+      return DISALLOWED_MESSAGE;
+    }
+
     // final clamp by codepoints, keep ellipsis if we truncate
     const cps = [...reply];
     if (cps.length > maxChars) {
@@ -326,6 +340,20 @@ async function askDiscord(prompt, maxChars = DISCORD_MAX_CHARS) {
 
     let reply = (completion.choices[0]?.message?.content || '').trim();
     reply = reply.replace(/\s+/g, ' ').trim();
+
+    const replyAction = await getModerationAction(reply);
+    if (replyAction === 'self_harm') {
+      logger.info('ai.ask blocked: reply moderation self_harm');
+      return SELF_HARM_MESSAGE;
+    }
+    if (replyAction === 'block') {
+      logger.info('ai.ask blocked: reply moderation');
+      return DISCORD_DISALLOWED_MESSAGE;
+    }
+    if (isBlocklisted(reply)) {
+      logger.info('ai.ask blocked: reply blocklist');
+      return DISCORD_DISALLOWED_MESSAGE;
+    }
 
     const cps = [...reply];
     if (cps.length > maxChars) {
