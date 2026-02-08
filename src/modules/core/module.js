@@ -37,6 +37,10 @@ function isModuleGloballyDisabled(settings, moduleName) {
   return global.includes(key);
 }
 
+function isChatToggleBlocked(moduleName) {
+  return String(moduleName || '').toLowerCase() === 'core';
+}
+
 module.exports = {
   name: 'core',
   description: 'Core utility commands.',
@@ -195,6 +199,7 @@ module.exports = {
           const list = Object.values(registry.modules || {})
             .map((mod) => mod?.name)
             .filter(Boolean)
+            .filter((name) => !isChatToggleBlocked(name))
             .filter((name) => !isModuleGloballyDisabled(settings, name))
             .map((name) => {
               const enabled = !isModuleDisabledForPlatform(ctx, name);
@@ -232,6 +237,9 @@ module.exports = {
           return ctx.reply(`No module "${rawName}"`);
         }
 
+        if (isChatToggleBlocked(moduleName)) {
+          return ctx.reply('Module not available.');
+        }
         if (isModuleGloballyDisabled(settings, moduleName)) {
           return ctx.reply('Module not available.');
         }
