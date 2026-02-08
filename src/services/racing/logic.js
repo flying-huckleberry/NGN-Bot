@@ -81,6 +81,19 @@ function rollCasualty(player, stats, weights, venue) {
     }
   }
 
+  if (venue === 'Groom Lake') {
+    const r = Math.random();
+    if (r < 0.30) {
+      return { dnf: true, dnfReason: 'alien_hit', failedComponent: null };
+    }
+    if (r < 0.60) {
+      return { dnf: true, dnfReason: 'beamed', failedComponent: null };
+    }
+    if (r < 0.90) {
+      return { dnf: true, dnfReason: 'abducted', failedComponent: null };
+    }
+  }
+
   if (venue === 'Mountain Pass') {
     if (Math.random() < 0.05) {
       return { dnf: true, dnfReason: 'brakes', failedComponent: 'brakes' };

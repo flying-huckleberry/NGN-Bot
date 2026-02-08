@@ -324,6 +324,15 @@ async function resolveRace(ctx) {
       if (c.reason === 'plane') {
         return `${mention} collided with a landing plane`;
       }
+      if (c.reason === 'alien_hit') {
+        return `${mention} hit an Alien!`;
+      }
+      if (c.reason === 'beamed') {
+        return `${mention} was beamed up like Scotty!`;
+      }
+      if (c.reason === 'abducted') {
+        return `${mention} was abducted and probed!`;
+      }
       if (c.reason === 'brakes') {
         return `${mention} melted their brakes`;
       }
