@@ -203,7 +203,7 @@ module.exports = {
             .filter((name) => !isModuleGloballyDisabled(settings, name))
             .map((name) => {
               const enabled = !isModuleDisabledForPlatform(ctx, name);
-              return `${name}:${enabled ? 'on' : 'off'}`;
+              return `${name}: ${enabled ? 'on' : 'off'}`;
             });
 
           return ctx.reply(
