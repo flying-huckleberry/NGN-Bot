@@ -47,7 +47,10 @@ function buildContextFactory(services) {
     const ctx = {
       env: mergedEnv,
       services,
-      state: { disabledModules: accountSettings?.disabledModules || [] },
+      state: {
+        disabledModules: accountSettings?.disabledModules || [],
+        disabledModulesByPlatform: accountSettings?.disabledModulesByPlatform || {},
+      },
       logger,     // app logger
       botLogger,  // bot logger if you ever want direct access
       msg,

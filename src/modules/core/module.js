@@ -2,6 +2,10 @@
 const { adminOnly } = require('../../utils/permissions');
 const logCommand = require('../../utils/logCommand');
 const partsConfig = require('../../services/racing/parts');
+const {
+  loadAccountSettings,
+  updateAccountSettings,
+} = require('../../state/accountSettings');
 
 function formatRacingPartTypes() {
   const keys = Object.keys(partsConfig || {});
@@ -16,6 +20,22 @@ function formatRacingPartTypes() {
   return pretty.join(', ');
 }
 
+function isModuleDisabledForPlatform(ctx, moduleName) {
+  const key = String(moduleName || '').toLowerCase();
+  const settings = ctx.accountSettings || {};
+  const global = (settings.disabledModules || []).map((n) => String(n || '').toLowerCase());
+  if (global.includes(key)) return true;
+  const per = settings.disabledModulesByPlatform || {};
+  const platformKey = ctx.platform === 'discord' ? 'discord' : 'youtube';
+  const list = (per[platformKey] || []).map((n) => String(n || '').toLowerCase());
+  return list.includes(key);
+}
+
+function isModuleGloballyDisabled(settings, moduleName) {
+  const key = String(moduleName || '').toLowerCase();
+  const global = (settings?.disabledModules || []).map((n) => String(n || '').toLowerCase());
+  return global.includes(key);
+}
 
 module.exports = {
   name: 'core',
@@ -32,13 +52,7 @@ module.exports = {
         const [rawM, rawC] = args;
         const m = rawM && rawM.toLowerCase();
         const c = rawC && rawC.toLowerCase();
-        const disabledSet = new Set(
-          (ctx.state?.disabledModules || []).map((name) =>
-            String(name || '').toLowerCase()
-          )
-        );
-        const isDisabled = (name) =>
-          disabledSet.has(String(name || '').toLowerCase());
+        const isDisabled = (name) => isModuleDisabledForPlatform(ctx, name);
 
         // generic help, no specific module
         if (!m) {
@@ -156,6 +170,92 @@ module.exports = {
         const a = ctx.msg?.authorDetails;
         await ctx.reply(
           `You are ${a?.displayName || 'unknown'}`
+        );
+      },
+    },
+    module: {
+      name: 'module',
+      description: 'Toggle a module on/off for the current platform.',
+      usage: 'module <name> <on|off>',
+      middleware: [adminOnly()],
+      async run(ctx) {
+        const args = ctx.args || [];
+        const [rawName, rawToggle] = args;
+        const settings = loadAccountSettings(ctx.accountId);
+        const { registry } = ctx.services;
+
+        if (rawName && String(rawName).toLowerCase() === 'status') {
+          const platformKey =
+            ctx.platform === 'discord' ? 'discord' :
+            ctx.platform === 'youtube' ? 'youtube' : null;
+          if (!platformKey) {
+            return ctx.reply('Module toggles are not supported on this platform.');
+          }
+
+          const list = Object.values(registry.modules || {})
+            .map((mod) => mod?.name)
+            .filter(Boolean)
+            .filter((name) => !isModuleGloballyDisabled(settings, name))
+            .map((name) => {
+              const enabled = !isModuleDisabledForPlatform(ctx, name);
+              return `${name}:${enabled ? 'on' : 'off'}`;
+            });
+
+          return ctx.reply(
+            `Modules (${platformKey}): ${list.join(' | ') || 'none'}`
+          );
+        }
+
+        if (!rawName || !rawToggle) {
+          return ctx.reply(`Usage: ${ctx.commandPrefix}module <name> <on|off>`);
+        }
+
+        const platformKey =
+          ctx.platform === 'discord' ? 'discord' :
+          ctx.platform === 'youtube' ? 'youtube' : null;
+        if (!platformKey) {
+          return ctx.reply('Module toggles are not supported on this platform.');
+        }
+
+        const toggle = String(rawToggle || '').toLowerCase();
+        const enabled = toggle === 'on' || toggle === 'enable' || toggle === 'enabled';
+        const disabled = toggle === 'off' || toggle === 'disable' || toggle === 'disabled';
+        if (!enabled && !disabled) {
+          return ctx.reply(`Usage: ${ctx.commandPrefix}module <name> <on|off>`);
+        }
+
+        const moduleName =
+          Object.values(registry.modules || {}).find(
+            (mod) => mod?.name?.toLowerCase() === String(rawName).toLowerCase()
+          )?.name || null;
+        if (!moduleName) {
+          return ctx.reply(`No module "${rawName}"`);
+        }
+
+        if (isModuleGloballyDisabled(settings, moduleName)) {
+          return ctx.reply('Module not available.');
+        }
+
+        const per = settings.disabledModulesByPlatform || {};
+        const list = new Set(
+          (per[platformKey] || []).map((n) => String(n || '').toLowerCase())
+        );
+        const key = moduleName.toLowerCase();
+        if (enabled) {
+          list.delete(key);
+        } else {
+          list.add(key);
+        }
+
+        updateAccountSettings(ctx.accountId, {
+          disabledModulesByPlatform: {
+            ...per,
+            [platformKey]: Array.from(list),
+          },
+        });
+
+        return ctx.reply(
+          `${moduleName} ${enabled ? 'enabled' : 'disabled'} on ${platformKey}.`
         );
       },
     },

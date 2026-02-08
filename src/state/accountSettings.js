@@ -25,6 +25,10 @@ function defaultSettings() {
   return {
     commandPrefix: env.COMMAND_PREFIX || '!',
     disabledModules: normalizeModules(env.DISABLED_MODULES || []),
+    disabledModulesByPlatform: {
+      youtube: [],
+      discord: [],
+    },
     youtube: {
       // Transport enablement is per account; YouTube connects/disconnects.
       enabled: true,
@@ -65,6 +69,13 @@ function normalizeSettings(settings) {
 
   next.commandPrefix = String(next.commandPrefix || base.commandPrefix || '!').trim() || '!';
   next.disabledModules = normalizeModules(next.disabledModules);
+  {
+    const per = next.disabledModulesByPlatform || {};
+    next.disabledModulesByPlatform = {
+      youtube: normalizeModules(per.youtube),
+      discord: normalizeModules(per.discord),
+    };
+  }
 
   {
     const cooldownRaw = Number(
@@ -162,6 +173,10 @@ function updateAccountSettings(accountId, updates = {}) {
     discord: { ...current.discord, ...(updates.discord || {}) },
     crypto: { ...current.crypto, ...(updates.crypto || {}) },
     weather: { ...current.weather, ...(updates.weather || {}) },
+    disabledModulesByPlatform: {
+      ...(current.disabledModulesByPlatform || {}),
+      ...(updates.disabledModulesByPlatform || {}),
+    },
   };
   return saveAccountSettings(accountId, next);
 }

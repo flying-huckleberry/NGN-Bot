@@ -63,6 +63,7 @@ function createCpanelController({
         return res.status(404).send('Account not found.');
       }
       const rawName = String(req.body?.module || '').trim();
+      const platform = String(req.body?.platform || 'global').trim().toLowerCase();
       const enabled = String(req.body?.enabled || '').toLowerCase() === 'true';
       const targetName =
         moduleNames.find((n) => n.toLowerCase() === rawName.toLowerCase()) || null;
@@ -70,6 +71,10 @@ function createCpanelController({
       const settings = loadAccountSettings(account.id);
       const disabled = new Set(
         (settings.disabledModules || []).map((name) => String(name || '').toLowerCase())
+      );
+      const disabledByPlatform = settings.disabledModulesByPlatform || {};
+      const perDisabled = new Set(
+        (disabledByPlatform[platform] || []).map((name) => String(name || '').toLowerCase())
       );
 
       if (!targetName) {
@@ -89,18 +94,34 @@ function createCpanelController({
       }
 
       const targetKey = targetName.toLowerCase();
-      if (enabled) {
-        disabled.delete(targetKey);
+      if (platform === 'youtube' || platform === 'discord') {
+        if (enabled) {
+          perDisabled.delete(targetKey);
+        } else {
+          perDisabled.add(targetKey);
+        }
+        updateAccountSettings(account.id, {
+          disabledModulesByPlatform: {
+            ...disabledByPlatform,
+            [platform]: Array.from(perDisabled),
+          },
+        });
       } else {
-        disabled.add(targetKey);
+        if (enabled) {
+          disabled.delete(targetKey);
+        } else {
+          disabled.add(targetKey);
+        }
+        updateAccountSettings(account.id, {
+          disabledModules: Array.from(disabled),
+        });
       }
-
-      updateAccountSettings(account.id, {
-        disabledModules: Array.from(disabled),
-      });
 
       const runtime = loadAccountRuntime(account.id);
       const quota = getQuotaInfo();
+      const platformLabel =
+        platform === 'youtube' ? 'YouTube' :
+        platform === 'discord' ? 'Discord' : 'Global';
       return respondCpanel(app, req, res, buildCpanelViewModel({
         account,
         settings: loadAccountSettings(account.id),
@@ -109,7 +130,7 @@ function createCpanelController({
         customCommands: loadAccountCommands(account.id),
         autoAnnouncements: loadAccountAnnouncements(account.id),
         quota,
-        message: `${targetName} ${enabled ? 'enabled' : 'disabled'}.`,
+        message: `${targetName} ${enabled ? 'enabled' : 'disabled'} (${platformLabel}).`,
         discordStatus: typeof getDiscordStatus === 'function' ? getDiscordStatus() : null,
       }));
     },

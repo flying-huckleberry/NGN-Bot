@@ -111,9 +111,14 @@ const { loadAccountSettings, updateAccountSettings } = safeRequire(
 
     const isModuleDisabled = (moduleName, transport, platformMeta, accountSettings) => {
       if (transport?.type === 'playground') return false;
-      const disabled = accountSettings?.disabledModules || [];
       const lower = String(moduleName || '').toLowerCase();
-      return disabled.some((name) => String(name || '').toLowerCase() === lower);
+      const disabled = accountSettings?.disabledModules || [];
+      const globalDisabled = disabled.some((name) => String(name || '').toLowerCase() === lower);
+      if (globalDisabled) return true;
+      const per = accountSettings?.disabledModulesByPlatform || {};
+      const platformKey = transport?.type === 'discord' ? 'discord' : 'youtube';
+      const list = Array.isArray(per[platformKey]) ? per[platformKey] : [];
+      return list.some((name) => String(name || '').toLowerCase() === lower);
     };
 
     const dispatch = createRouter({ registry, buildContext, isModuleDisabled });
