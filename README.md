@@ -15,6 +15,7 @@ A modular Node.js bot that connects to both YouTube Live Chat and Discord. It pr
 - Count commands (YouTube only) for admin/mod-only incremental counters.
 - Weather module (OpenMeteo) with cached values and optional commands/variables.
 - Multi-account control panel with per-account settings (prefix, race config, disabled modules, Discord channel rules, etc).
+- Per-platform module toggles (YouTube/Discord) in the control panel.
 - Web UI: Accounts picker, account control panels, module settings pages, and Playground.
 - OAuth2 for YouTube; Discord token-based auth.
 - Scoped persistence: per-playground, per-YouTube channel, and per-Discord guild state.
@@ -118,6 +119,12 @@ YouTube-only counters that increment when mods/owner run the command. Each count
 
 ### Weather module
 Optional per-account weather settings (OpenMeteo) cached for 30 minutes. Provides template variables like `{weather_temp}` and optional commands like `!weather`, `!temp`, `!wind`, `!precip`, `!day`.
+
+### Module toggles (chat + web UI)
+- Web UI exposes per-platform module toggles for YouTube and Discord.
+- Global module disables are intended for in-development/broken modules and are only managed in the web UI.
+- Chat command (admin/mod only): `!module <name> <on|off>` toggles the module for the current platform.
+- Chat command: `!module status` lists module states for the current platform and omits globally disabled modules.
 
 ### Crypto paper trading
 Enabled by default. Users start with account-scoped starting cash and can trade allowlisted coins from the account settings. Prices come from CoinGecko `/simple/price`, cached per account TTL (set 0 for no cache). Commands: `!buy <symbol> <usd>`, `!sell <symbol> <usd>`, `!wallet`, `!coin <symbol>`, `!leaders`. Replies tag the user and respect the chat character limit.
