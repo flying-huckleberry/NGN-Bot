@@ -257,42 +257,14 @@
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
         <% modules.forEach((name) => { %>
           <% const key = String(name || '').toLowerCase(); %>
-          <% const enabled = !disabledSet.has(key); %>
           <% const youtubeEnabled = !disabledYoutubeSet.has(key); %>
           <% const discordEnabled = !disabledDiscordSet.has(key); %>
-          <div data-module-toggle-wrapper data-module-card style="position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb; transition:background 0.2s ease;">
-            <a data-module-link-text href="/accounts/<%= account.id %>/modules/<%= encodeURIComponent(String(name || '').toLowerCase()) %>" aria-label="Edit <%= name %> module settings" style="position:relative; z-index:1; font-size:0.95rem; color:inherit; text-decoration:none;"><%= name %> &rarr;</a>
-            <div style="display:flex; gap:6px; align-items:center; z-index:2;">
-              <span title="Global" data-module-toggle-hit style="position:relative; width:42px; height:22px; display:inline-block; cursor:pointer;">
-                <input
-                  type="checkbox"
-                  data-module-toggle="<%= name %>"
-                  data-module-platform="global"
-                  <%= enabled ? 'checked' : '' %>
-                  style="position:absolute; inset:0; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;"
-                />
-                <span data-toggle-track style="
-                  position:absolute;
-                  inset:0;
-                  background:<%= enabled ? '#22c55e' : '#1f2937' %>;
-                  border:1px solid #334155;
-                  border-radius:999px;
-                  transition:all 0.2s ease;
-                "></span>
-                <span data-toggle-thumb style="
-                  position:absolute;
-                  top:2px;
-                  left:<%= enabled ? '22px' : '2px' %>;
-                  width:18px;
-                  height:18px;
-                  background:#0b1224;
-                  border:1px solid #475569;
-                  border-radius:999px;
-                  box-shadow:0 1px 4px rgba(0,0,0,0.4);
-                  transition:all 0.2s ease;
-                "></span>
-              </span>
-              <span title="YouTube" data-module-toggle-hit style="position:relative; width:42px; height:22px; display:inline-block; cursor:pointer;">
+          <div data-module-toggle-wrapper data-module-card style="position:relative; display:flex; flex-direction:column; gap:10px; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #1f2937; color:#e5e7eb; transition:background 0.2s ease;">
+            <a data-module-link-text href="/accounts/<%= account.id %>/modules/<%= encodeURIComponent(String(name || '').toLowerCase()) %>" aria-label="Edit <%= name %> module settings" style="position:relative; z-index:1; display:block; font-size:0.95rem; color:inherit; text-decoration:none; font-weight:600; padding:6px 8px; border-radius:6px; background:rgba(148,163,184,0.08); border:1px solid rgba(148,163,184,0.12);"><%= name %> &rarr;</a>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; align-items:center; z-index:2; width:100%;">
+              <label style="display:flex; flex-direction:column; align-items:center; gap:6px; font-size:0.8rem; color:#cbd5e1; min-width:0;">
+                <span style="text-align:center; width:100%;">YouTube</span>
+                <span data-module-toggle-hit style="position:relative; width:42px; height:22px; display:inline-block; cursor:pointer;">
                 <input
                   type="checkbox"
                   data-module-toggle="<%= name %>"
@@ -320,8 +292,11 @@
                   box-shadow:0 1px 4px rgba(0,0,0,0.4);
                   transition:all 0.2s ease;
                 "></span>
-              </span>
-              <span title="Discord" data-module-toggle-hit style="position:relative; width:42px; height:22px; display:inline-block; cursor:pointer;">
+                </span>
+              </label>
+              <label style="display:flex; flex-direction:column; align-items:center; gap:6px; font-size:0.8rem; color:#cbd5e1; min-width:0;">
+                <span style="text-align:center; width:100%;">Discord</span>
+                <span data-module-toggle-hit style="position:relative; width:42px; height:22px; display:inline-block; cursor:pointer;">
                 <input
                   type="checkbox"
                   data-module-toggle="<%= name %>"
@@ -349,7 +324,8 @@
                   box-shadow:0 1px 4px rgba(0,0,0,0.4);
                   transition:all 0.2s ease;
                 "></span>
-              </span>
+                </span>
+              </label>
             </div>
           </div>
         <% }) %>
